@@ -42,7 +42,7 @@ interface Chord {
   frets: (number | "X")[]; // string 6 down to 1 (E A D G H E)
   fingering?: (string | null)[]; // string 6 down to 1 finger markings
   barre?: { fret: number; fromStringIdx: number; toStringIdx: number };
-  tags: ("basis" | "7th" | "barre" | "sus" | "dim" | "pentatonic")[];
+  tags: ("basis" | "7th" | "barre" | "sus" | "dim" | "pentatonic" | "caged")[];
   multiNotes?: { stringIdx: number; frets: number[]; fingerings?: string[] }[];
   rootStringIdx?: number;
 }
@@ -90,6 +90,36 @@ const COMMON_CHORDS: Chord[] = [
   { name: "Fdim7", frets: ["X", "X", 0, 1, 0, 1], fingering: [null, null, null, "1", null, "2"], tags: ["dim"] },
   { name: "Edim7", frets: ["X", "X", 2, 3, 2, 3], fingering: [null, null, "1", "3", "2", "4"], tags: ["dim"] },
   { name: "Hdim", frets: ["X", 2, 3, 4, 3, "X"], fingering: [null, "1", "2", "4", "3", null], tags: ["dim"] },
+  // CAGED System Akkorde (C, A, G, E, D Formen für alle Grundtöne)
+  { name: "C (C-Form)", frets: ["X", 3, 2, 0, 1, 0], fingering: [null, "3", "2", null, "1", null], tags: ["basis", "caged"] },
+  { name: "C (A-Form)", frets: ["X", 3, 5, 5, 5, 3], fingering: [null, "1", "2", "3", "4", "1"], barre: { fret: 3, fromStringIdx: 1, toStringIdx: 5 }, tags: ["barre", "caged"] },
+  { name: "C (G-Form)", frets: [8, 7, 5, 5, 5, 8], fingering: ["4", "3", "1", "1", "1", "4"], barre: { fret: 5, fromStringIdx: 2, toStringIdx: 4 }, tags: ["caged"] },
+  { name: "C (E-Form)", frets: [8, 10, 10, 9, 8, 8], fingering: ["1", "3", "4", "2", "1", "1"], barre: { fret: 8, fromStringIdx: 0, toStringIdx: 5 }, tags: ["barre", "caged"] },
+  { name: "C (D-Form)", frets: ["X", "X", 10, 12, 13, 12], fingering: [null, null, "1", "3", "4", "2"], tags: ["caged"] },
+
+  { name: "A (C-Form)", frets: ["X", 12, 11, 9, 10, 9], fingering: [null, "4", "3", "1", "2", "1"], barre: { fret: 9, fromStringIdx: 3, toStringIdx: 5 }, tags: ["barre", "caged"] },
+  { name: "A (A-Form)", frets: ["X", 0, 2, 2, 2, 0], fingering: [null, null, "1", "2", "3", null], tags: ["basis", "caged"] },
+  { name: "A (G-Form)", frets: [5, 4, 2, 2, 2, 5], fingering: ["4", "3", "1", "1", "1", "4"], barre: { fret: 2, fromStringIdx: 2, toStringIdx: 4 }, tags: ["caged"] },
+  { name: "A (E-Form)", frets: [5, 7, 7, 6, 5, 5], fingering: ["1", "3", "4", "2", "1", "1"], barre: { fret: 5, fromStringIdx: 0, toStringIdx: 5 }, tags: ["barre", "caged"] },
+  { name: "A (D-Form)", frets: ["X", "X", 7, 9, 10, 9], fingering: [null, null, "1", "2", "4", "3"], tags: ["caged"] },
+
+  { name: "G (C-Form)", frets: ["X", 10, 9, 7, 8, 7], fingering: [null, "4", "3", "1", "2", "1"], barre: { fret: 7, fromStringIdx: 3, toStringIdx: 5 }, tags: ["barre", "caged"] },
+  { name: "G (A-Form)", frets: ["X", 10, 12, 12, 12, 10], fingering: [null, "1", "2", "3", "4", "1"], barre: { fret: 10, fromStringIdx: 1, toStringIdx: 5 }, tags: ["barre", "caged"] },
+  { name: "G (G-Form)", frets: [3, 2, 0, 0, 0, 3], fingering: ["3", "2", null, null, null, "4"], tags: ["basis", "caged"] },
+  { name: "G (E-Form)", frets: [3, 5, 5, 4, 3, 3], fingering: ["1", "3", "4", "2", "1", "1"], barre: { fret: 3, fromStringIdx: 0, toStringIdx: 5 }, tags: ["barre", "caged"] },
+  { name: "G (D-Form)", frets: ["X", "X", 5, 7, 8, 7], fingering: [null, null, "1", "2", "4", "3"], tags: ["caged"] },
+
+  { name: "E (C-Form)", frets: ["X", 7, 6, 4, 5, 4],  fingering: [null, "4", "3", "1", "2", "1"], barre: { fret: 4, fromStringIdx: 3, toStringIdx: 5 }, tags: ["barre", "caged"] },
+  { name: "E (A-Form)", frets: ["X", 7, 9, 9, 9, 7],  fingering: [null, "1", "2", "3", "4", "1"], barre: { fret: 7, fromStringIdx: 1, toStringIdx: 5 }, tags: ["barre", "caged"] },
+  { name: "E (G-Form)", frets: [12, 11, 9, 9, 9, 12], fingering: ["4", "3", "1", "1", "1", "4"], barre: { fret: 9, fromStringIdx: 2, toStringIdx: 4 }, tags: ["caged"] },
+  { name: "E (E-Form)", frets: [0, 2, 2, 1, 0, 0],  fingering: [null, "2", "3", "1", null, null], tags: ["basis", "caged"] },
+  { name: "E (D-Form)", frets: ["X", "X", 2, 4, 5, 4],  fingering: [null, null, "1", "2", "4", "3"], tags: ["caged"] },
+
+  { name: "D (C-Form)", frets: ["X", 5, 4, 2, 3, 2],  fingering: [null, "4", "3", "1", "2", "1"], barre: { fret: 2, fromStringIdx: 3, toStringIdx: 5 }, tags: ["barre", "caged"] },
+  { name: "D (A-Form)", frets: ["X", 5, 7, 7, 7, 5],  fingering: [null, "1", "2", "3", "4", "1"], barre: { fret: 5, fromStringIdx: 1, toStringIdx: 5 }, tags: ["barre", "caged"] },
+  { name: "D (G-Form)", frets: [10, 9, 7, 7, 10, 10], fingering: ["4", "3", "1", "1", "4", "4"], tags: ["caged"] },
+  { name: "D (E-Form)", frets: [10, 12, 12, 11, 10, 10], fingering: ["1", "3", "4", "2", "1", "1"], barre: { fret: 10, fromStringIdx: 0, toStringIdx: 5 }, tags: ["barre", "caged"] },
+  { name: "D (D-Form)", frets: ["X", "X", 0, 2, 3, 2],  fingering: [null, null, null, "1", "3", "2"], tags: ["basis", "caged"] },
   // Pentatonik-Griffe
   { 
     name: "Am Pent.", 
@@ -288,11 +318,14 @@ export default function App() {
   const [isDisplayDropdownOpen, setIsDisplayDropdownOpen] = useState<boolean>(false);
   const [fretboardRotation, setFretboardRotation] = useState<number>(0);
   const [selectedChord, setSelectedChord] = useState<Chord | null>(COMMON_CHORDS[0]);
-  const [chordFilter, setChordFilter] = useState<"all" | "basis" | "7th" | "barre" | "sus" | "dim" | "pentatonic">("all");
+  const [chordFilter, setChordFilter] = useState<"all" | "basis" | "7th" | "barre" | "sus" | "dim" | "pentatonic" | "caged">("all");
 
   const [pentatonicKey, setPentatonicKey] = useState<string>("A");
   const [pentatonicType, setPentatonicType] = useState<"minor" | "major">("minor");
   const [pentatonicShape, setPentatonicShape] = useState<string>("1");
+
+  const [cagedRoot, setCagedRoot] = useState<string>("D");
+  const [cagedShape, setCagedShape] = useState<string>("A");
 
   // Extended Full Screen modal and scale auto play states
   const [isExtendedNeckModalOpen, setIsExtendedNeckModalOpen] = useState<boolean>(false);
@@ -307,6 +340,17 @@ export default function App() {
       setSelectedChord(scaleChord);
     }
   }, [chordFilter, pentatonicKey, pentatonicType, pentatonicShape]);
+
+  // Keep dynamic selectedChord synchronized to CAGED parameters
+  useEffect(() => {
+    if (chordFilter === "caged") {
+      const matchName = `${cagedRoot} (${cagedShape}-Form)`;
+      const found = COMMON_CHORDS.find(c => c.name === matchName);
+      if (found) {
+        setSelectedChord(found);
+      }
+    }
+  }, [chordFilter, cagedRoot, cagedShape]);
 
   // Interactive "afterglow" state for the last strummed note / tuning delta
   const [lastStrum, setLastStrum] = useState<{
@@ -1135,7 +1179,7 @@ export default function App() {
     return (
       <div 
         id="chromatic-tone-wheel" 
-        className="bg-neutral-900/65 border border-white/10 rounded-2xl p-4 flex flex-col justify-between items-center w-full max-w-xl md:max-w-2xl h-[168px] shadow-xl transition-all duration-300 relative overflow-hidden"
+        className="bg-neutral-900/65 border border-white/10 rounded-2xl p-4 flex flex-col justify-between items-center w-full max-w-xl md:max-w-2xl h-[168px] min-h-[168px] max-h-[168px] shadow-xl transition-[background-color,border-color] duration-300 relative overflow-hidden"
       >
         <div className="w-full flex justify-between items-center mb-2.5 px-2 h-7">
           <div className="flex flex-col text-left">
@@ -1169,7 +1213,7 @@ export default function App() {
           
           {/* Vertical Center Hairline needle (The target alignment pointer) */}
           <div className="absolute inset-y-0 w-[2.5px] z-20 pointer-events-none flex flex-col items-center justify-between">
-            {/* Top bead arrow */}
+            {/* Bottom bead arrow */}
             <div className={`w-0 h-0 border-l-[4px] border-r-[4px] border-t-[5px] border-l-transparent border-r-transparent transition-colors duration-200 ${
               activeIndex !== -1 
                 ? isWheelInTune 
@@ -1287,7 +1331,7 @@ export default function App() {
         </div>
 
         {/* Dynamic Helpful Assist Prompts at Bottom */}
-        <div className="w-full mt-2.5 p-2 rounded-xl bg-black/40 border border-white/5 font-mono text-[9px] text-center select-none h-[34px] flex items-center justify-center">
+        <div className="w-full mt-2.5 p-2 rounded-xl bg-black/40 border border-white/5 font-mono text-[9px] text-center select-none h-[34px] min-h-[34px] max-h-[34px] overflow-hidden flex items-center justify-center">
           {activeNoteName !== null ? (
             (() => {
               const activeIdx = CHROMATIC_SCALE.indexOf(activeNoteName);
@@ -2271,20 +2315,27 @@ export default function App() {
                   { id: "barre", label: "Barré" },
                   { id: "sus", label: "Sus-Akkorde" },
                   { id: "dim", label: "Dim / Verm." },
+                  { id: "caged", label: "📦 CAGED System 💡" },
                   { id: "pentatonic", label: "✨ Pentatonik Workstation 🏆" }
                 ].map((tab) => {
+                  const isSpecial = tab.id === "pentatonic" || tab.id === "caged";
                   const isPentatonic = tab.id === "pentatonic";
+                  const isCaged = tab.id === "caged";
                   return (
                     <button
                       key={tab.id}
                       onClick={() => setChordFilter(tab.id as any)}
                       className={`text-[10px] font-mono py-1 px-2.5 rounded transition-all select-none cursor-pointer border ${
                         chordFilter === tab.id
-                          ? isPentatonic
-                            ? "bg-amber-500/25 text-yellow-300 font-extrabold border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]"
+                          ? isSpecial
+                            ? isCaged
+                              ? "bg-blue-500/25 text-blue-300 font-extrabold border-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.4)]"
+                              : "bg-amber-500/25 text-yellow-300 font-extrabold border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]"
                             : "bg-white/10 text-amber-400 font-bold border-transparent"
-                          : isPentatonic
-                            ? "bg-amber-950/30 border-amber-900/40 text-amber-400/90 hover:text-amber-300 hover:bg-amber-900/30 animate-pulse"
+                          : isSpecial
+                            ? isCaged
+                              ? "bg-blue-950/30 border-blue-900/40 text-blue-400/90 hover:text-blue-300 hover:bg-blue-900/30 font-bold"
+                              : "bg-amber-950/30 border-amber-900/40 text-amber-400/90 hover:text-amber-300 hover:bg-amber-900/30 animate-pulse"
                             : "text-white/45 border-transparent hover:text-white hover:bg-white/5"
                       }`}
                     >
@@ -2294,7 +2345,7 @@ export default function App() {
                 })}
               </div>
 
-              {/* Grid of Chord Buttons or Pentatoni Workbench */}
+              {/* Grid of Chord Buttons or Workbenches */}
               {chordFilter === "pentatonic" ? (
                 <div id="pentatonic-workstation" className="flex flex-col gap-4 bg-black/30 p-4 border border-white/5 rounded-2xl shadow-inner w-full">
                   {/* 1. Grundton / Key selection */}
@@ -2359,6 +2410,85 @@ export default function App() {
                           {s === "extended" ? "Ganzes Neck" : `Box ${s}`}
                         </button>
                       ))}
+                    </div>
+                  </div>
+                </div>
+              ) : chordFilter === "caged" ? (
+                <div id="caged-system-workstation" className="flex flex-col gap-4 bg-black/40 p-4 border border-blue-500/10 rounded-2xl shadow-inner w-full">
+                  {/* Info Header */}
+                  <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-blue-950/25 border border-blue-500/20">
+                    <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-blue-300">📦 DAS INTERAKTIVE CAGED-SYSTEM GIG-TOOL 💡</span>
+                    <p className="text-[10.5px] text-white/70 font-sans leading-relaxed">
+                      Das CAGED-System teilt das Gitarrengriffbrett in <strong>5 verschiebbare offene Grundakkordformen</strong> (C, A, G, E und D) auf. Wähle einen Grundton und die gewünschte Form, um das Griffbild zu erzeugen und anzuschlagen!
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Column 1: Root Tone */}
+                    <div className="flex flex-col gap-2">
+                      <span className="text-[9.5px] uppercase font-mono font-bold tracking-wider text-white/35">1. Grundton des Akkords (Root Key):</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {["C", "D", "E", "G", "A"].map((k) => (
+                          <button
+                            key={k}
+                            onClick={() => setCagedRoot(k)}
+                            className={`px-3.5 py-2 rounded-xl text-[10.5px] font-mono font-black transition-all cursor-pointer ${
+                              cagedRoot === k
+                                ? "bg-blue-500 text-white shadow-md shadow-blue-500/25 border-transparent font-extrabold"
+                                : "bg-white/5 text-white/60 border border-white/5 hover:text-white hover:bg-white/10"
+                            }`}
+                          >
+                            {k}-Dur
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Column 2: Shape */}
+                    <div className="flex flex-col gap-2">
+                      <span className="text-[9.5px] uppercase font-mono font-bold tracking-wider text-white/35">2. CAGED-Barré-Akkordform (Shape):</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {["C", "A", "G", "E", "D"].map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => setCagedShape(s)}
+                            className={`px-3.5 py-2 rounded-xl text-[10.5px] font-mono font-black transition-all cursor-pointer border ${
+                              cagedShape === s
+                                ? "bg-blue-600/30 border-blue-500 text-blue-300 shadow-md shadow-blue-500/10 font-extrabold"
+                                : "bg-white/5 border-transparent text-white/60 hover:text-white hover:bg-white/10"
+                            }`}
+                          >
+                            {s}-Form
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dynamic Explanation block */}
+                  <div className="mt-1 p-2.5 rounded-xl bg-black/40 border border-white/5 font-mono text-[10px] text-white/60 leading-relaxed min-h-16 flex items-center">
+                    <div className="flex gap-2.5 items-start">
+                      <span className="text-blue-400 text-xs">ℹ️</span>
+                      <span>
+                        <strong className="text-white/80">{cagedRoot}-Dur in der {cagedShape}-Form:</strong>{" "}
+                        {(() => {
+                          switch (cagedShape) {
+                            case "C":
+                              return `Hier greifst du die offene C-Dur-Form nach oben verschoben. Der Grundton liegt auf der A-Saite im ${cagedRoot === "D" ? "5." : cagedRoot === "E" ? "7." : cagedRoot === "G" ? "10." : cagedRoot === "A" ? "12." : "3."} Bund (${cagedRoot}).`;
+                            case "A":
+                              return `Hier greifst du die offene A-Dur-Form nach oben verschoben. Der Grundton liegt auf der A-Saite im ${cagedRoot === "C" ? "3." : cagedRoot === "D" ? "5." : cagedRoot === "E" ? "7." : cagedRoot === "G" ? "10." : "0."} Bund (${cagedRoot}). ${cagedRoot === "D" ? "Dies ist deine gesuchte D-Dur A-Form!" : ""}`;
+                            case "G":
+                              return `Hier greifst du die offene G-Dur-Form nach oben verschoben. Der Grundton liegt auf der tiefen E-Saite im ${cagedRoot === "C" ? "8." : cagedRoot === "D" ? "10." : cagedRoot === "E" ? "12." : cagedRoot === "A" ? "5." : "3."} Bund (${cagedRoot}).`;
+                            case "E":
+                              return `Hier greifst du die offene E-Dur-Form nach oben verschoben (Klassischer Barré-Griff). Der Grundton liegt auf der tiefen E-Saite im ${cagedRoot === "C" ? "8." : cagedRoot === "D" ? "10." : cagedRoot === "G" ? "3." : cagedRoot === "A" ? "5." : "0."} Bund (${cagedRoot}).`;
+                            case "D":
+                              return `Hier greifst du die offene D-Dur-Form nach oben verschoben. Der Grundton liegt auf der D-Saite im ${cagedRoot === "C" ? "10." : cagedRoot === "G" ? "5." : cagedRoot === "A" ? "7." : cagedRoot === "E" ? "2." : "0."} Bund (${cagedRoot}).`;
+                            default:
+                              return "";
+                          }
+                        })()}{" "}
+                        {cagedRoot === "D" && cagedShape === "A" ? "💡 Perfekt, genau dieses gesuchte Griffbild zeigt das Diagramm rechts!" : ""}
+                      </span>
                     </div>
                   </div>
                 </div>
