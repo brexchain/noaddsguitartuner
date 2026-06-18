@@ -396,6 +396,7 @@ export default function App() {
   const [isScalePlaying, setIsScalePlaying] = useState<boolean>(false);
   const scalePlayTimeoutRef = useRef<any>(null);
   const [isNeckFlipped, setIsNeckFlipped] = useState<boolean>(false);
+  const [isVerticalPentatonicRotated, setIsVerticalPentatonicRotated] = useState<boolean>(false);
 
   // Keep dynamic selectedChord synchronized to pentatonic params
   useEffect(() => {
@@ -1215,27 +1216,31 @@ export default function App() {
           className="shrink-0 flex items-center justify-center p-2.5 bg-black/60 rounded-xl border border-white/10 shadow-inner w-[160px] h-[155px] transition-transform duration-300 ease-in-out"
           style={{ transform: `rotate(${fretboardRotation}deg)` }}
         >
-          <svg viewBox="0 0 140 135" className="w-full h-full text-white/80 font-sans pointer-events-none">
+          <svg viewBox="0 0 140 135" className="w-[full] h-full text-white/80 font-sans pointer-events-none">
             {/* String names above the frets */}
             {(() => {
               const notes = ["E2", "A2", "D3", "G3", "H3", "E4"];
-              return notes.map((note, i) => (
-                <text
-                  key={i}
-                  x={20 + i * 20}
-                  y={11}
-                  textAnchor="middle"
-                  className="font-mono text-[8.5px] fill-white/30 font-bold"
-                >
-                  {note}
-                </text>
-              ));
+              return notes.map((note, i) => {
+                const displayStringIdx = isNeckFlipped ? (5 - i) : i;
+                return (
+                  <text
+                    key={i}
+                    x={20 + i * 20}
+                    y={11}
+                    textAnchor="middle"
+                    className="font-mono text-[8.5px] fill-white/30 font-bold"
+                  >
+                    {notes[displayStringIdx]}
+                  </text>
+                );
+              });
             })()}
 
             {/* Fretboard Grid Lines */}
             {/* Vertical Strings with realistic thickness graduation */}
             {Array.from({ length: 6 }).map((_, i) => {
-              const thickness = [2.5, 2.0, 1.6, 1.2, 0.9, 0.6][i];
+              const displayStringIdx = isNeckFlipped ? (5 - i) : i;
+              const thickness = [2.5, 2.0, 1.6, 1.2, 0.9, 0.6][displayStringIdx];
               return (
                 <line
                   key={`string-${i}`}
@@ -1301,8 +1306,10 @@ export default function App() {
               const { fret, fromStringIdx, toStringIdx } = selectedChord.barre;
               const relativeFret = fret - startFret + 1;
               const yPos = 25 + (relativeFret - 0.5) * 20;
-              const x1 = 20 + fromStringIdx * 20;
-              const w = (toStringIdx - fromStringIdx) * 20;
+              const col1 = isNeckFlipped ? (5 - toStringIdx) : fromStringIdx;
+              const col2 = isNeckFlipped ? (5 - fromStringIdx) : toStringIdx;
+              const x1 = 20 + col1 * 20;
+              const w = (col2 - col1) * 20;
               return (
                 <rect
                   key="barre-indicator"
@@ -1321,7 +1328,7 @@ export default function App() {
               // Free Listening dynamic representation on strings
               Array.from({ length: 6 }).map((_, i) => {
                 const xPos = 20 + i * 20;
-                const currentStrNum = 6 - i;
+                const currentStrNum = isNeckFlipped ? (i + 1) : (6 - i);
                 const isVibrating = hasSignal && closestString?.number === currentStrNum;
 
                 return (
@@ -1363,7 +1370,8 @@ export default function App() {
             ) : selectedChord.multiNotes ? (
               selectedChord.multiNotes.flatMap((mNotes) => {
                 const stringIdx = mNotes.stringIdx;
-                const xPos = 20 + stringIdx * 20;
+                const displayStringIdx = isNeckFlipped ? (5 - stringIdx) : stringIdx;
+                const xPos = 20 + displayStringIdx * 20;
 
                 return mNotes.frets.map((fret, noteIdx) => {
                   const relativeFret = fret - startFret + 1;
@@ -1393,7 +1401,9 @@ export default function App() {
                 });
               })
             ) : (
-              selectedChord.frets.map((fret, i) => {
+              Array.from({ length: 6 }).map((_, i) => {
+                const stringIdx = isNeckFlipped ? (5 - i) : i;
+                const fret = selectedChord.frets[stringIdx];
                 const xPos = 20 + i * 20;
 
                 // Case 1: Muted string 'X'
@@ -1422,14 +1432,14 @@ export default function App() {
                 // Case 3: Fingering/pressed fret (with starting fret calculation offsets)
                 const relativeFret = Number(fret) - startFret + 1;
                 const yPos = 25 + (relativeFret - 0.5) * 20;
-                const isChordRoot = selectedChord.rootStringIdx !== undefined && selectedChord.rootStringIdx === i;
-                const fingeringNum = isChordRoot ? "R" : (selectedChord.fingering?.[i] || null);
+                const isChordRoot = selectedChord.rootStringIdx !== undefined && selectedChord.rootStringIdx === stringIdx;
+                const fingeringNum = isChordRoot ? "R" : (selectedChord.fingering?.[stringIdx] || null);
 
                 // If is part of a barre chord and is on the barre fret, we can draw a ring highlights, or skip background as it already has rect
                 const isPartOfBarreFret = selectedChord.barre && 
                   fret === selectedChord.barre.fret && 
-                  i >= selectedChord.barre.fromStringIdx && 
-                  i <= selectedChord.barre.toStringIdx;
+                  stringIdx >= selectedChord.barre.fromStringIdx && 
+                  stringIdx <= selectedChord.barre.toStringIdx;
 
                 return (
                   <g key={`pressed-${i}`}>
@@ -1463,6 +1473,7 @@ export default function App() {
           </svg>
         </div>
 
+
         <button
           id="rotate-fretboard-btn"
           onClick={() => setFretboardRotation((prev) => (prev + 90) % 360)}
@@ -1475,6 +1486,263 @@ export default function App() {
       </div>
     );
   };
+
+  const renderHorizontalFullNeck = () => {
+    const scaleIntervals = pentatonicType === "minor" ? [0, 3, 5, 7, 10] : [0, 2, 4, 7, 9];
+    const rootSemitone = KEY_SEMITONES[pentatonicKey] ?? 5;
+
+    return (
+      <div className="flex flex-col items-center gap-3 w-full animate-fade-in select-none">
+        {/* Control bar */}
+        <div className="flex items-center justify-between w-full px-2 gap-2 flex-wrap mb-1">
+          <div className="flex flex-col text-left min-w-0 flex-1">
+            <span className="text-[10px] uppercase font-mono font-black text-amber-500 tracking-wider">Ganzes Griffbrett (Master)</span>
+            <span className="text-[8.5px] text-zinc-400 truncate tracking-tight">{pentatonicKey} {pentatonicType === "minor" ? "Moll" : "Dur"}-Pentatonik [Fret 0-17]</span>
+          </div>
+          
+          <div className="flex gap-1.5 shrink-0">
+            <button
+              onClick={() => setIsNeckFlipped(prev => !prev)}
+              className={`flex items-center gap-1 px-2.5 py-1.5 border rounded-xl text-[9px] uppercase font-black transition-all cursor-pointer select-none active:scale-95 shadow-md ${
+                isNeckFlipped
+                  ? "bg-amber-500/20 border-amber-500/50 text-amber-300"
+                  : "bg-neutral-900 hover:bg-neutral-850 border-white/10 hover:border-white/20 text-white"
+              }`}
+              title="Gitarrenhals vertikal spiegeln (E-Saiten vertauschen)"
+            >
+              <RotateCw size={10} className={`transition-transform duration-300 ${isNeckFlipped ? "rotate-180" : ""}`} />
+              <span>Spiegeln {isNeckFlipped ? "Aktiv" : "180°"}</span>
+            </button>
+            <button
+              onClick={() => setIsExtendedNeckModalOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-neutral-900 border border-white/10 hover:border-white/20 hover:bg-neutral-850 rounded-xl text-[9px] uppercase font-black text-white transition-all cursor-pointer select-none active:scale-95 shadow-md"
+              title="Große interaktive Großansicht öffnen"
+            >
+              <span>🔍 Großansicht</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Fretboard viewport with horizontal scrolling wrapper */}
+        <div className="w-full overflow-x-auto pb-1.5 select-none scrollbar-thin">
+          <div className="relative min-w-[810px] h-[165px] bg-gradient-to-r from-neutral-950 via-[#1e130a]/80 to-neutral-500/5 rounded-xl p-3 border border-white/5 shadow-inner">
+            <svg viewBox="0 0 812 145" className="w-[810px] h-[142px] font-sans">
+              {/* Beautiful active scale background watermarks */}
+              <g className="pointer-events-none select-none">
+                <text
+                  x="395"
+                  y="78"
+                  textAnchor="middle"
+                  alignmentBaseline="middle"
+                  className="font-sans font-black text-[96px] fill-amber-500/[0.05] tracking-widest uppercase transition-all duration-300"
+                >
+                  {pentatonicKey}
+                </text>
+                <text
+                  x="395"
+                  y="114"
+                  textAnchor="middle"
+                  className="font-mono font-black text-[9px] tracking-[0.25em] uppercase fill-amber-500/25"
+                >
+                  {pentatonicType === "minor" ? "PENTATONISCHE MOLL-SKALA" : "PENTATONISCHE DUR-SKALA"}
+                </text>
+              </g>
+
+              {/* Fret Markers / Inlay dots background layer (Fret 3, 5, 7, 9, 15, 17) */}
+              {[3, 5, 7, 9, 15, 17].map(fret => {
+                const x = 30 + fret * 44 - 22;
+                return (
+                  <circle
+                    key={`v-full-marker-${fret}`}
+                    cx={x}
+                    cy={70}
+                    r={5.5}
+                    className="fill-white/5 stroke-none pointer-events-none"
+                  />
+                );
+              })}
+
+              {/* Octave double marker at Fret 12 */}
+              {(() => {
+                const x = 30 + 12 * 44 - 22;
+                return (
+                  <g key="v-full-marker-12" className="pointer-events-none">
+                    <circle cx={x} cy={45} r={4.5} className="fill-white/5 stroke-none" />
+                    <circle cx={x} cy={95} r={4.5} className="fill-white/5 stroke-none" />
+                  </g>
+                );
+              })()}
+
+              {/* Horizontal Strings (6 of them) */}
+              {[0, 1, 2, 3, 4, 5].map((sIdx) => {
+                const y = 20 + sIdx * 20;
+                const strokeWidths = [1.2, 1.4, 1.8, 2.0, 2.4, 3.0]; // thick low E (3.0), thin high E (1.2)
+                const lineStrokeIdx = isNeckFlipped ? (5 - sIdx) : sIdx;
+                return (
+                  <line
+                    key={`v-full-h-str-${sIdx}`}
+                    x1={30}
+                    y1={y}
+                    x2={778}
+                    y2={y}
+                    className="stroke-zinc-500/35 pointer-events-none"
+                    strokeWidth={strokeWidths[lineStrokeIdx]}
+                  />
+                );
+              })}
+
+              {/* String name labels on the left of the Nut */}
+              {[0, 1, 2, 3, 4, 5].map((sIdx) => {
+                const y = 20 + sIdx * 20;
+                const stringIdx = isNeckFlipped ? sIdx : (5 - sIdx);
+                const getStringLabelDoc = (idx: number) => {
+                  switch (idx) {
+                    case 0: return { name: "E", color: "fill-red-400 font-extrabold" };
+                    case 1: return { name: "A", color: "fill-orange-400 font-extrabold" };
+                    case 2: return { name: "D", color: "fill-yellow-400 font-extrabold" };
+                    case 3: return { name: "G", color: "fill-emerald-400 font-extrabold" };
+                    case 4: return { name: "H", color: "fill-blue-400 font-extrabold" };
+                    case 5: return { name: "e", color: "fill-purple-400 font-extrabold" };
+                    default: return { name: "", color: "fill-zinc-400" };
+                  }
+                };
+                const doc = getStringLabelDoc(stringIdx);
+                return (
+                  <g key={`v-full-string-label-${sIdx}`} className="pointer-events-none select-none">
+                    <rect
+                      x={2}
+                      y={y - 8}
+                      width={20}
+                      height={16}
+                      rx={4}
+                      className="fill-neutral-950/90 stroke stroke-zinc-700/50 stroke-[0.7]"
+                    />
+                    <text
+                      x={12}
+                      y={y + 3.5}
+                      textAnchor="middle"
+                      className={`font-mono text-[9px] font-black ${doc.color}`}
+                    >
+                      {doc.name}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Vertical Frets (0 to 17) */}
+              {Array.from({ length: 18 }).map((_, fIdx) => {
+                const x = 30 + fIdx * 44;
+                const isNut = fIdx === 0;
+
+                const openStrings = [0, 5, 10, 15, 19, 24];
+                const containsRoot = openStrings.some(openPitch => {
+                  const offset = ((openPitch + fIdx - rootSemitone) % 12 + 12) % 12;
+                  return offset === 0;
+                });
+
+                return (
+                  <g key={`v-full-v-fret-${fIdx}`} className="pointer-events-none">
+                    <line
+                      x1={x}
+                      y1={15}
+                      x2={x}
+                      y2={125}
+                      className={isNut ? "stroke-amber-500/80" : "stroke-zinc-700/50"}
+                      strokeWidth={isNut ? 3.5 : 1}
+                    />
+
+                    {containsRoot && fIdx > 0 && (
+                      <rect
+                        x={x - 30}
+                        y={129}
+                        width={16}
+                        height={12}
+                        rx={4}
+                        className="fill-amber-500/15 stroke stroke-amber-500/35 stroke-[0.5]"
+                      />
+                    )}
+
+                    <text
+                      x={isNut ? x - 8 : x - 22}
+                      y={138}
+                      textAnchor="middle"
+                      className={`font-mono text-[8px] font-bold ${
+                        containsRoot && fIdx > 0
+                          ? "fill-amber-400 font-extrabold"
+                          : "fill-white/15"
+                      }`}
+                    >
+                      {fIdx === 0 ? "Nut" : fIdx}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Note bubbles */}
+              {(() => {
+                const openStrings = [0, 5, 10, 15, 19, 24]; // open tuning values from E2 to E4
+
+                return [0, 1, 2, 3, 4, 5].flatMap((sIdx) => {
+                  const stringIdx = isNeckFlipped ? sIdx : (5 - sIdx); // 5 matches top string (E4), 0 matches bottom string (E2)
+                  const openPitch = openStrings[stringIdx];
+                  const y = 20 + sIdx * 20;
+
+                  return Array.from({ length: 18 }).map((_, fret) => {
+                    const pitch = openPitch + fret;
+                    const offset = ((pitch - rootSemitone) % 12 + 12) % 12;
+                    const isScaleNote = scaleIntervals.includes(offset);
+                    if (!isScaleNote) return null;
+
+                    const isRoot = offset === 0;
+                    const x = fret === 0 ? 15 : 30 + fret * 44 - 22;
+
+                    return (
+                      <g
+                        key={`v-full-neck-note-${stringIdx}-${fret}`}
+                        className="cursor-pointer group/note"
+                        onClick={() => playNote(stringIdx, fret)}
+                      >
+                        <circle
+                          cx={x}
+                          cy={y}
+                          r={8.5}
+                          className={`transition-all duration-200 ${
+                            isRoot
+                              ? "fill-amber-400 stroke-amber-200 stroke-1 drop-shadow-[0_0_6px_#f59e0b] group-hover/note:scale-110"
+                              : "fill-neutral-900 stroke-amber-500/80 stroke-1.5 group-hover/note:fill-amber-600 group-hover/note:scale-110"
+                          }`}
+                        />
+                        <text
+                          x={x}
+                          y={y + 2.5}
+                          textAnchor="middle"
+                          className={`font-sans text-[7.5px] font-black transition-colors ${
+                            isRoot
+                              ? "fill-neutral-950 font-black"
+                              : "font-mono fill-white/80 group-hover/note:fill-white"
+                          }`}
+                        >
+                          {isRoot ? pentatonicKey : scaleIntervals.indexOf(offset) + 1}
+                        </text>
+                        
+                        <circle
+                          cx={x}
+                          cy={y}
+                          r={16}
+                          className="fill-none stroke-amber-500/20 stroke-1 scale-0 transition-transform group-hover/note:scale-100 duration-300 pointer-events-none"
+                        />
+                      </g>
+                    );
+                  });
+                });
+              })()}
+            </svg>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
 
   // Render function for the gorgeous, reactive Chromatic Tone Wheel (rendered as a horizontal sliding electricity meter tape)
   const renderToneWheel = () => {
@@ -3031,9 +3299,29 @@ export default function App() {
                   </div>
 
                   {/* Fretboard Graphic nested just below Box Shape selection */}
-                  <div className="flex flex-col items-center justify-center py-4 bg-black/40 border border-white/5 rounded-2xl shadow-inner max-w-sm mx-auto w-full animate-fade-in">
-                    <span className="text-[9px] uppercase font-mono font-bold tracking-wider text-amber-400/70 mb-2">Visuelles Griffbild (Fretboard Shape):</span>
-                    {renderFretboardGraphic()}
+                  <div className={`flex flex-col items-center justify-center py-4 bg-black/40 border border-white/5 rounded-2xl shadow-inner mx-auto w-full transition-all duration-300 animate-fade-in ${
+                    pentatonicShape === "extended" ? "max-w-4xl px-2.5" : "max-w-sm"
+                  }`}>
+                    <div className="flex items-center justify-between w-full px-4 mb-2.5 flex-wrap gap-2">
+                      <span className="text-[9.5px] uppercase font-mono font-bold tracking-wider text-amber-400/70">
+                        {pentatonicShape === "extended" ? "Visuelles Griffbrett (Ganzes Neck):" : "Visuelles Griffbild (Fretboard Shape):"}
+                      </span>
+                      
+                      {/* Integrated Mirror/Spiegeln button on all pentatonic workstation views */}
+                      <button
+                        onClick={() => setIsNeckFlipped(prev => !prev)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 border rounded-lg text-[9px] uppercase font-black transition-all cursor-pointer select-none active:scale-[0.98] shadow-md ${
+                          isNeckFlipped
+                            ? "bg-amber-500/20 border-amber-500/50 text-amber-300"
+                            : "bg-neutral-900 hover:bg-neutral-850 border-white/10 hover:border-white/20 text-[#f5f5f5]"
+                        }`}
+                        title="Gitarrenhals spiegeln (Saitenverlauf von oben nach unten vertauschen)"
+                      >
+                        <RotateCw size={9} className={`transition-transform duration-300 ${isNeckFlipped ? "rotate-180 text-amber-400" : ""}`} />
+                        <span>Spiegeln {isNeckFlipped ? "Aktiv" : "180°"}</span>
+                      </button>
+                    </div>
+                    {pentatonicShape === "extended" ? renderHorizontalFullNeck() : renderFretboardGraphic()}
                   </div>
 
                   {/* Comprehensive Interactive Theory block */}
@@ -4034,6 +4322,7 @@ export default function App() {
                   {[0, 1, 2, 3, 4, 5].map((sIdx) => {
                     const y = 25 + sIdx * 22;
                     const strokeWidths = [1.3, 1.5, 2.0, 2.3, 2.7, 3.4];
+                    const lineStrokeIdx = isNeckFlipped ? (5 - sIdx) : sIdx;
                     return (
                       <line
                         key={`modal-h-str-${sIdx}`}
@@ -4042,7 +4331,7 @@ export default function App() {
                         x2={886}
                         y2={y}
                         className="stroke-zinc-500/40 pointer-events-none"
-                        strokeWidth={strokeWidths[sIdx]}
+                        strokeWidth={strokeWidths[lineStrokeIdx]}
                       />
                     );
                   })}
@@ -4105,7 +4394,7 @@ export default function App() {
                     const rootSemitone = KEY_SEMITONES[pentatonicKey] ?? 5;
 
                     return [0, 1, 2, 3, 4, 5].flatMap((sIdx) => {
-                      const stringIdx = 5 - sIdx;
+                      const stringIdx = isNeckFlipped ? sIdx : (5 - sIdx);
                       const openPitch = openStrings[stringIdx];
                       const y = 25 + sIdx * 22;
 
@@ -4191,6 +4480,19 @@ export default function App() {
                 >
                   <span className="text-sm">{isScalePlaying ? "⏹" : "▶"}</span>
                   <span>{isScalePlaying ? "Tonleiter stopp" : "Tonleiter abspielen"}</span>
+                </button>
+
+                <button
+                  onClick={() => setIsNeckFlipped(prev => !prev)}
+                  className={`flex items-center gap-1.5 px-4 py-2.5 border rounded-xl text-xs uppercase font-mono font-black tracking-wider transition-all cursor-pointer select-none active:scale-[0.98] shadow-md ${
+                    isNeckFlipped
+                      ? "bg-amber-500/20 border-amber-500/50 text-amber-300"
+                      : "bg-neutral-800 hover:bg-neutral-700 hover:text-white border-white/10 hover:border-white/20 text-[#f5f5f5]"
+                  }`}
+                  title="Gitarrenhals spiegeln (Saitenverlauf vertikal spiegeln)"
+                >
+                  <RotateCw size={11} className={`transition-transform duration-300 ${isNeckFlipped ? "rotate-180 text-amber-400" : ""}`} />
+                  <span>Spiegeln {isNeckFlipped ? "Aktiv" : "180°"}</span>
                 </button>
 
                 <button
