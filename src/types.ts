@@ -27,6 +27,28 @@ export const STANDARD_GUITAR_STRINGS: GuitarString[] = [
   { number: 6, note: "E", pitch: "E2", frequency: 82.41 },
 ];
 
+export const UKULELE_STRINGS: GuitarString[] = [
+  { number: 1, note: "A", pitch: "A4", frequency: 440.00 },
+  { number: 2, note: "E", pitch: "E4", frequency: 329.63 },
+  { number: 3, note: "C", pitch: "C4", frequency: 261.63 },
+  { number: 4, note: "G", pitch: "G4", frequency: 392.00 },
+];
+
+export const TWELVE_STRING_GUITAR_STRINGS: GuitarString[] = [
+  { number: 1, note: "E", pitch: "E4", frequency: 329.63 },
+  { number: 2, note: "E", pitch: "E4", frequency: 329.63 },
+  { number: 3, note: "H", pitch: "H3", frequency: 246.94 },
+  { number: 4, note: "H", pitch: "H3", frequency: 246.94 },
+  { number: 5, note: "G", pitch: "G4", frequency: 392.00 },
+  { number: 6, note: "G", pitch: "G3", frequency: 196.00 },
+  { number: 7, note: "D", pitch: "D4", frequency: 293.66 },
+  { number: 8, note: "D", pitch: "D3", frequency: 146.83 },
+  { number: 9, note: "A", pitch: "A3", frequency: 220.00 },
+  { number: 10, note: "A", pitch: "A2", frequency: 110.00 },
+  { number: 11, note: "E", pitch: "E3", frequency: 164.81 },
+  { number: 12, note: "E", pitch: "E2", frequency:  82.41 },
+];
+
 /**
  * Core tuning state representing the instantaneous pitch detection metrics,
  * frequency analysis, and precision alignment pointers.

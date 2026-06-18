@@ -14,7 +14,12 @@ import { GuitarString, STANDARD_GUITAR_STRINGS } from "../types";
  * @param sampleRate - The actual context audio sample rate (typically 44100 or 48000 Hz)
  * @returns Detected frequency in Hz, or -1 if no stable pitch is detected.
  */
-export function detectGuitarPitch(buffer: Float32Array, sampleRate: number): number {
+export function detectGuitarPitch(
+  buffer: Float32Array, 
+  sampleRate: number, 
+  minFreq = 70, 
+  maxFreq = 385
+): number {
   const SIZE = buffer.length;
 
   // Step 1: Calculate Root Mean Square (RMS) amplitude/power.
@@ -30,11 +35,7 @@ export function detectGuitarPitch(buffer: Float32Array, sampleRate: number): num
     return -1;
   }
 
-  // Step 2: Define frequency bounds for standard 6-string guitar
-  // E2 (82.41 Hz) with a margin down to 70 Hz for flat-tuning support.
-  // E4 (329.63 Hz) with a margin up to 380 Hz for sharp-tuning and high string pitch.
-  const minFreq = 70;
-  const maxFreq = 385;
+  // Step 2: Define frequency bounds configured dynamically per instrument
 
   // Map frequency bounds to lag ranges (in samples)
   // Lag = sampleRate / frequency
@@ -137,15 +138,19 @@ export function detectGuitarPitch(buffer: Float32Array, sampleRate: number): num
  * Given a detected frequency, returns the closest standard guitar string
  * and the cents offset from it.
  */
-export function findClosestGuitarString(frequency: number, referenceA4 = 440): {
+export function findClosestGuitarString(
+  frequency: number, 
+  referenceA4 = 440, 
+  strings: GuitarString[] = STANDARD_GUITAR_STRINGS
+): {
   closestString: GuitarString;
   centsDiff: number;
 } {
-  let closestString = STANDARD_GUITAR_STRINGS[0];
+  let closestString = strings[0];
   let minAbsCents = Infinity;
   let finalCentsDiff = 0;
 
-  for (const str of STANDARD_GUITAR_STRINGS) {
+  for (const str of strings) {
     const scaledFreq = str.frequency * (referenceA4 / 440.0);
     // Standard cents formula: cents = 1200 * log2(f / f0)
     const centsDiff = 1200 * Math.log2(frequency / scaledFreq);

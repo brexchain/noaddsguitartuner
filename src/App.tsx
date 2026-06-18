@@ -21,7 +21,7 @@
 
 import { useEffect, useRef, useState, CSSProperties } from "react";
 import { Mic, MicOff, Volume2, Info, Settings, Zap, CheckCircle2, RefreshCw, Target, Radio, Play, Pause, ChevronDown, X, RotateCw, Sun, SunDim, Trees } from "lucide-react";
-import { STANDARD_GUITAR_STRINGS, GuitarString } from "./types";
+import { STANDARD_GUITAR_STRINGS, UKULELE_STRINGS, TWELVE_STRING_GUITAR_STRINGS, GuitarString } from "./types";
 import { detectGuitarPitch, findClosestGuitarString, findClosestChromaticNote } from "./utils/audioProcessor";
 
 // Tuning sensitivity presets
@@ -372,10 +372,28 @@ export default function App() {
     referenceA4Ref.current = referenceA4;
   }, [referenceA4]);
 
-  const tunedGuitarStrings = STANDARD_GUITAR_STRINGS.map(str => ({
+  const [selectedInstrumentId, setSelectedInstrumentId] = useState<"guitar" | "ukulele" | "guitar12">("guitar");
+  const selectedInstrumentIdRef = useRef<"guitar" | "ukulele" | "guitar12">("guitar");
+  useEffect(() => {
+    selectedInstrumentIdRef.current = selectedInstrumentId;
+    setTargetStringLock(null);
+  }, [selectedInstrumentId]);
+
+  const currentStrings = selectedInstrumentId === "ukulele" 
+    ? UKULELE_STRINGS 
+    : selectedInstrumentId === "guitar12" 
+    ? TWELVE_STRING_GUITAR_STRINGS 
+    : STANDARD_GUITAR_STRINGS;
+
+  const tunedGuitarStrings = currentStrings.map(str => ({
     ...str,
     frequency: str.frequency * (referenceA4 / 440.0)
   }));
+
+  const tunedGuitarStringsRef = useRef<GuitarString[]>([]);
+  useEffect(() => {
+    tunedGuitarStringsRef.current = tunedGuitarStrings;
+  }, [tunedGuitarStrings]);
 
   const [isModusDropdownOpen, setIsModusDropdownOpen] = useState<boolean>(false);
   const [displayMode, setDisplayMode] = useState<"soundhole" | "led-bar">("soundhole");
@@ -942,11 +960,14 @@ export default function App() {
         }
         const rms = Math.sqrt(sumSq / buffer.length);
 
-        const freq = detectGuitarPitch(buffer, audioCtx.sampleRate);
+        const activeInst = selectedInstrumentIdRef.current;
+        const minFreq = activeInst === "ukulele" ? 180 : 70;
+        const maxFreq = activeInst === "ukulele" ? 520 : (activeInst === "guitar12" ? 450 : 385);
+        const freq = detectGuitarPitch(buffer, audioCtx.sampleRate, minFreq, maxFreq);
 
         // Amplitude-based Pluck Onset Detection for Auto-Lock tracking
         if (freq > 0 && rms > 0.008) {
-          const actualClosestRes = findClosestGuitarString(freq, referenceA4Ref.current);
+          const actualClosestRes = findClosestGuitarString(freq, referenceA4Ref.current, tunedGuitarStringsRef.current);
           const actualClosestStr = actualClosestRes.closestString;
 
           if (!isPluckActiveRef.current) {
@@ -976,17 +997,17 @@ export default function App() {
 
           const currentLock = targetStringLockRef.current;
           if (currentLock !== null) {
-            const lockedStr = tunedGuitarStrings.find(s => s.number === currentLock);
+            const lockedStr = tunedGuitarStringsRef.current.find(s => s.number === currentLock);
             if (lockedStr) {
               closestStr = lockedStr;
               cents = 1200 * Math.log2(freq / lockedStr.frequency);
             } else {
-              const res = findClosestGuitarString(freq, referenceA4Ref.current);
+              const res = findClosestGuitarString(freq, referenceA4Ref.current, tunedGuitarStringsRef.current);
               closestStr = res.closestString;
               cents = res.centsDiff;
             }
           } else {
-            const res = findClosestGuitarString(freq, referenceA4Ref.current);
+            const res = findClosestGuitarString(freq, referenceA4Ref.current, tunedGuitarStringsRef.current);
             closestStr = res.closestString;
             cents = res.centsDiff;
           }
@@ -2082,7 +2103,7 @@ export default function App() {
               className="flex flex-col leading-tight px-1 py-0.5 sm:px-2.5 sm:py-1 text-left select-none cursor-pointer group rounded-lg hover:bg-white/5 min-w-0"
             >
               <span className="text-[8px] uppercase tracking-[0.12em] sm:tracking-[0.25em] text-white/45 font-bold mb-0.5 truncate">
-                Kammerton
+                Concert Pitch
               </span>
               <span className="text-[10px] sm:text-[11px] font-mono font-bold text-white/80 uppercase flex items-center gap-1 min-w-0 truncate">
                 A4=<span className={referenceA4 === 432 ? "text-amber-400 font-extrabold" : "text-white"}>{referenceA4}</span>
@@ -2766,26 +2787,79 @@ export default function App() {
               ))}
             </div>
 
-            {/* View Selectable Dropdown Container */}
+            {/* Dynamic Instrument & View Selectable Dropdown Container */}
             <div className="relative font-sans animate-none" ref={displayDropdownRef}>
               <button
                 id="view-dropdown-trigger"
                 onClick={() => setIsDisplayDropdownOpen(!isDisplayDropdownOpen)}
                 className="flex items-center gap-1.5 px-3 py-1 bg-neutral-950/85 hover:bg-neutral-800 border border-white/10 hover:border-white/20 rounded-lg text-[9px] uppercase tracking-wider font-extrabold text-[#F5F5F5] transition-all cursor-pointer select-none"
-                title="Wähle Ansichtsmodus"
+                title="Wähle Instrument & Ansicht"
               >
-                <span>{displayMode === "soundhole" ? "🎸 Schallloch" : "📊 Studio"}</span>
+                <span>
+                  {displayMode === "led-bar" 
+                    ? "📊 Studio" 
+                    : selectedInstrumentId === "ukulele" 
+                    ? "🪕 Ukulele" 
+                    : selectedInstrumentId === "guitar12" 
+                    ? "🎸₁₂ 12-Saiter" 
+                    : "🎸 Gitarre"}
+                </span>
                 <ChevronDown size={10} className={`text-white/40 transition-transform duration-200 ${isDisplayDropdownOpen ? "rotate-180" : ""}`} />
               </button>
 
               {isDisplayDropdownOpen && (
-                <div className="absolute right-0 mt-1.5 w-36 bg-neutral-950/95 backdrop-blur-md border border-white/10 rounded-lg overflow-hidden shadow-2xl z-50 animate-fade-in pointer-events-auto py-0.5">
+                <div className="absolute right-0 mt-1.5 w-44 bg-neutral-950/95 backdrop-blur-md border border-white/10 rounded-lg overflow-hidden shadow-2xl z-50 animate-fade-in pointer-events-auto py-1">
+                  <div className="px-3 py-0.5 text-[7.5px] uppercase tracking-wider text-white/35 font-mono font-bold">
+                    Instrument
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSelectedInstrumentId("guitar");
+                      setDisplayMode("soundhole");
+                      setIsDisplayDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-[9.5px] uppercase font-bold tracking-wider flex items-center justify-between hover:bg-white/5 transition-all ${
+                      displayMode === "soundhole" && selectedInstrumentId === "guitar" ? "text-amber-400 bg-amber-500/5" : "text-white/60"
+                    }`}
+                  >
+                    <span>🎸 Gitarre</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedInstrumentId("ukulele");
+                      setDisplayMode("soundhole");
+                      setIsDisplayDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-[9.5px] uppercase font-bold tracking-wider flex items-center justify-between hover:bg-white/5 transition-all ${
+                      displayMode === "soundhole" && selectedInstrumentId === "ukulele" ? "text-amber-400 bg-amber-500/5" : "text-white/60"
+                    }`}
+                  >
+                    <span>🪕 Ukulele</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedInstrumentId("guitar12");
+                      setDisplayMode("soundhole");
+                      setIsDisplayDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-[9.5px] uppercase font-bold tracking-wider flex items-center justify-between hover:bg-white/5 transition-all ${
+                      displayMode === "soundhole" && selectedInstrumentId === "guitar12" ? "text-amber-400 bg-amber-500/5" : "text-white/60"
+                    }`}
+                  >
+                    <span>🎸₁₂ 12-Saiter</span>
+                  </button>
+
+                  <div className="h-[1px] bg-white/5 my-1" />
+
+                  <div className="px-3 py-0.5 text-[7.5px] uppercase tracking-wider text-white/35 font-mono font-bold">
+                    Anzeigemodus
+                  </div>
                   <button
                     onClick={() => {
                       setDisplayMode("soundhole");
                       setIsDisplayDropdownOpen(false);
                     }}
-                    className={`w-full text-left px-3 py-2 text-[10px] uppercase font-bold tracking-wider flex items-center justify-between hover:bg-white/5 transition-all ${
+                    className={`w-full text-left px-3 py-1.5 text-[9.5px] uppercase font-bold tracking-wider flex items-center justify-between hover:bg-white/5 transition-all ${
                       displayMode === "soundhole" ? "text-amber-400 bg-amber-500/5" : "text-white/60"
                     }`}
                   >
@@ -2796,11 +2870,11 @@ export default function App() {
                       setDisplayMode("led-bar");
                       setIsDisplayDropdownOpen(false);
                     }}
-                    className={`w-full text-left px-3 py-2 text-[10px] uppercase font-bold tracking-wider flex items-center justify-between hover:bg-white/5 transition-all ${
+                    className={`w-full text-left px-3 py-1.5 text-[9.5px] uppercase font-bold tracking-wider flex items-center justify-between hover:bg-white/5 transition-all ${
                       displayMode === "led-bar" ? "text-amber-400 bg-amber-500/5" : "text-white/60"
                     }`}
                   >
-                    <span>📊 Studio</span>
+                    <span>📊 Studio (LED)</span>
                   </button>
                 </div>
               )}
@@ -2827,19 +2901,58 @@ export default function App() {
               {/* Black Soundhole Deep interior cavity */}
               <div className="w-full h-full rounded-full bg-[#030303] relative overflow-hidden flex flex-col items-center justify-center shadow-[inset_0_10px_35px_rgba(0,0,0,0.96)] border-2 border-neutral-950">
                 
-                {/* 6 Acoustic Steel Strings overlay vertically */}
-                <div className="absolute inset-x-0 top-0 bottom-0 flex justify-between px-10 sm:px-14 md:px-16 pointer-events-none z-10">
+                {/* Acoustic Strings overlay vertically */}
+                <div className={`absolute inset-x-0 top-0 bottom-0 flex justify-between pointer-events-none z-10 ${
+                  selectedInstrumentId === "ukulele" 
+                    ? "px-16 sm:px-24 md:px-28" 
+                    : selectedInstrumentId === "guitar12"
+                    ? "px-6 sm:px-10 md:px-12"
+                    : "px-10 sm:px-14 md:px-16"
+                }`}>
                   {(() => {
-                    const stringPositions = [
-                      { num: 6, label: "E", thickness: "w-[4.2px] sm:w-[5px]" },
-                      { num: 5, label: "A", thickness: "w-[3.3px] sm:w-[3.9px]" },
-                      { num: 4, label: "D", thickness: "w-[2.6px] sm:w-[3.1px]" },
-                      { num: 3, label: "G", thickness: "w-[2.0px] sm:w-[2.4px]" },
-                      { num: 2, label: "H", thickness: "w-[1.4px] sm:w-[1.7px]" },
-                      { num: 1, label: "E", thickness: "w-[0.9px] sm:w-[1.1px]" }
-                    ];
+                    const stringPositions = tunedGuitarStrings.map((str) => {
+                      let thickness = "w-[1.2px] sm:w-[1.5px]";
+                      if (selectedInstrumentId === "ukulele") {
+                        if (str.number === 3) thickness = "w-[2.4px] sm:w-[2.8px]";
+                        else if (str.number === 4) thickness = "w-[1.8px] sm:w-[2.2px]";
+                        else if (str.number === 2) thickness = "w-[1.5px] sm:w-[1.8px]";
+                        else thickness = "w-[1.1px] sm:w-[1.4px]";
+                      } else if (selectedInstrumentId === "guitar12") {
+                        const tMap: Record<number, string> = {
+                          1: "w-[0.8px] sm:w-[0.9px]",
+                          2: "w-[0.8px] sm:w-[0.9px]",
+                          3: "w-[1.1px] sm:w-[1.3px]",
+                          4: "w-[1.1px] sm:w-[1.3px]",
+                          5: "w-[0.8px] sm:w-[0.9px]",
+                          6: "w-[1.6px] sm:w-[1.8px]",
+                          7: "w-[1.1px] sm:w-[1.2px]",
+                          8: "w-[2.2px] sm:w-[2.4px]",
+                          9: "w-[1.3px] sm:w-[1.4px]",
+                          10: "w-[2.8px] sm:w-[3.0px]",
+                          11: "w-[1.6px] sm:w-[1.8px]",
+                          12: "w-[3.6px] sm:w-[3.8px]",
+                        };
+                        thickness = tMap[str.number] || "w-[1.2px] sm:w-[1.5px]";
+                      } else {
+                        const tMap: Record<number, string> = {
+                          1: "w-[0.9px] sm:w-[1.1px]",
+                          2: "w-[1.4px] sm:w-[1.7px]",
+                          3: "w-[2.0px] sm:w-[2.4px]",
+                          4: "w-[2.6px] sm:w-[3.1px]",
+                          5: "w-[3.3px] sm:w-[3.9px]",
+                          6: "w-[4.2px] sm:w-[5px]",
+                        };
+                        thickness = tMap[str.number] || "w-[1.2px] sm:w-[1.5px]";
+                      }
 
-                    return [...stringPositions].reverse().map((str) => {
+                      return {
+                        num: str.number,
+                        label: str.note,
+                        thickness
+                      };
+                    });
+
+                    return stringPositions.map((str) => {
                       const isDetected = hasSignal && closestString?.number === str.num;
                       
                       // Check if manual audio bummton is playing this string
@@ -3999,7 +4112,11 @@ export default function App() {
         </div>
 
         {/* String Selector Rail */}
-        <div id="string-tuner-dock" className="mt-8 grid grid-cols-6 gap-3 border-t border-white/10 pt-8">
+        <div 
+          id="string-tuner-dock" 
+          className="mt-8 grid gap-1.5 sm:gap-3 border-t border-white/10 pt-8"
+          style={{ gridTemplateColumns: `repeat(${tunedGuitarStrings.length}, minmax(0, 1fr))` }}
+        >
           {[...tunedGuitarStrings].reverse().map((str) => {
             const isActive = hasSignal && closestString?.number === str.number;
             const isLocked = targetStringLock === str.number;
@@ -4055,11 +4172,11 @@ export default function App() {
                 <div className="mt-2 w-full flex flex-col gap-1 font-mono text-[8px] sm:text-[9.5px] tracking-tight leading-none text-left border-t border-white/5 pt-1.5 px-0.5">
                   <div className={`flex justify-between items-center transition-colors ${referenceA4 === 440 ? "text-amber-400 font-extrabold" : "text-white/20"}`}>
                     <span className="text-[7.5px] uppercase text-white/25">440:</span>
-                    <span>{STANDARD_GUITAR_STRINGS.find(s => s.number === str.number)!.frequency.toFixed(1)}Hz</span>
+                    <span>{currentStrings.find(s => s.number === str.number)!.frequency.toFixed(1)}Hz</span>
                   </div>
                   <div className={`flex justify-between items-center transition-colors ${referenceA4 === 432 ? "text-amber-400 font-extrabold" : "text-white/20"}`}>
                     <span className="text-[7.5px] uppercase text-white/25">432:</span>
-                    <span>{(STANDARD_GUITAR_STRINGS.find(s => s.number === str.number)!.frequency * (432/440)).toFixed(1)}Hz</span>
+                    <span>{(currentStrings.find(s => s.number === str.number)!.frequency * (432/440)).toFixed(1)}Hz</span>
                   </div>
                 </div>
               </button>
