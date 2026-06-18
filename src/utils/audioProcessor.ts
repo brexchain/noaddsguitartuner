@@ -68,59 +68,26 @@ export function detectGuitarPitch(buffer: Float32Array, sampleRate: number): num
   const threshold = 0.15;
   let bestTau = -1;
   let bestVal = 1.0;
-
-  // Let's identify all local minima in the search range
-  interface LocalMinimum {
-    tau: number;
-    val: number;
-  }
-  const localMinima: LocalMinimum[] = [];
-
   for (let tau = minLag + 1; tau < maxLag; tau++) {
     if (cmndf[tau] < cmndf[tau - 1] && cmndf[tau] < cmndf[tau + 1]) {
-      localMinima.push({ tau, val: cmndf[tau] });
-    }
-  }
-
-  // Find the first local minimum below the threshold
-  const firstBelowThreshIdx = localMinima.findIndex((m) => m.val < threshold);
-
-  if (firstBelowThreshIdx !== -1) {
-    let chosenMin = localMinima[firstBelowThreshIdx];
-
-    // Professional Harmonic Correction:
-    // A guitar string vibrating produces powerful harmonics. The 2nd harmonic (octave) or 3rd harmonic (fifth)
-    // often produces a strong matching dip at a smaller lag (e.g. half of the fundamental period).
-    // If the loop stopped early at this harmonic, we look ahead to see if there is a deeper or comparably
-    // deep matching dip at roughly an integer multiple (like 2x or 3x) of the early lag.
-    for (let i = firstBelowThreshIdx + 1; i < localMinima.length; i++) {
-      const candidate = localMinima[i];
-      const ratio = candidate.tau / chosenMin.tau;
-      
-      // Look for 2x (octave) or 3x (fifth harmonic) multiples, with a soft ±12% tolerance
-      const isIntegerMultiple = Math.abs(ratio - 2.0) < 0.12 || Math.abs(ratio - 3.0) < 0.12;
-      
-      if (isIntegerMultiple) {
-        // If the candidate at the double/triple period has a very solid fit (below threshold or exceptionally deep)
-        // and is comparable to or better than the early local minimum, we shift the decision to the fundamental.
-        if (candidate.val < threshold || candidate.val < chosenMin.val * 1.3) {
-          chosenMin = candidate;
-        }
+      if (cmndf[tau] < threshold) {
+        bestTau = tau;
+        bestVal = cmndf[tau];
+        break;
       }
     }
-
-    bestTau = chosenMin.tau;
-    bestVal = chosenMin.val;
   }
 
   // Fallback 1: If no local minimum falls below the threshold, choose the absolute deepest local minimum of the normalization
-  if (bestTau === -1 && localMinima.length > 0) {
+  if (bestTau === -1) {
     let minVal = Infinity;
-    for (const m of localMinima) {
-      if (m.val < minVal) {
-        minVal = m.val;
-        bestTau = m.tau;
-        bestVal = m.val;
+    for (let tau = minLag + 1; tau < maxLag; tau++) {
+      if (cmndf[tau] < cmndf[tau - 1] && cmndf[tau] < cmndf[tau + 1]) {
+        if (cmndf[tau] < minVal) {
+          minVal = cmndf[tau];
+          bestTau = tau;
+          bestVal = cmndf[tau];
+        }
       }
     }
   }

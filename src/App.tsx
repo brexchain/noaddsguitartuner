@@ -986,20 +986,9 @@ export default function App() {
               cents = res.centsDiff;
             }
           } else {
-            // Under Auto-Detect: We are a chromatic tuner!
-            // 1. Detect the closest chromatic note across all 12 semitones
-            const chrom = findClosestChromaticNote(freq, referenceA4Ref.current);
-            // 2. To keep the physical guitar neck and string visuals working perfectly,
-            // find the closest standard physical string (1 to 6)
-            const standardRes = findClosestGuitarString(freq, referenceA4Ref.current);
-            
-            closestStr = {
-              number: standardRes.closestString.number,
-              note: chrom.note,
-              pitch: `${chrom.note}${chrom.octave}`,
-              frequency: chrom.frequency
-            };
-            cents = chrom.centsDiff;
+            const res = findClosestGuitarString(freq, referenceA4Ref.current);
+            closestStr = res.closestString;
+            cents = res.centsDiff;
           }
 
           // Apply specialized exponential smoothing (EMA) for rock-solid visual feedback
@@ -1763,17 +1752,12 @@ export default function App() {
     let activeNoteName: string | null = null;
     let activeCents = 0;
     let displayOctave: number | null = null;
-    let isFromAfterglow = false;
 
-    if (hasSignal && frequency > 0 && closestString) {
-      activeNoteName = closestString.note;
-      activeCents = centsDiff;
-      displayOctave = parseInt(closestString.pitch.replace(/[^0-9]/g, "")) || null;
-    } else if (lastStrum && (Date.now() - lastStrum.timestamp < 4000)) {
-      activeNoteName = lastStrum.closestString.note;
-      activeCents = lastStrum.cents;
-      displayOctave = parseInt(lastStrum.closestString.pitch.replace(/[^0-9]/g, "")) || null;
-      isFromAfterglow = true;
+    if (hasSignal && frequency > 0) {
+      const chrom = findClosestChromaticNote(frequency, referenceA4);
+      activeNoteName = chrom.note;
+      activeCents = chrom.centsDiff;
+      displayOctave = chrom.octave;
     } else if (playingStringNum !== null) {
       const playingStr = tunedGuitarStrings.find(s => s.number === playingStringNum);
       if (playingStr) {
@@ -1787,37 +1771,19 @@ export default function App() {
     const activeIndex = activeNoteName ? CHROMATIC_SCALE.indexOf(activeNoteName) : -1;
     const isWheelInTune = activeNoteName !== null && Math.abs(activeCents) <= 3;
 
-    // Use a smooth state or fallback to the locked string's note, or standard index 4 (E) if no active pitch is found.
-    let fallbackIndex = 4; // default E
-    if (targetStringLock !== null) {
-      const lockedStr = tunedGuitarStrings.find(s => s.number === targetStringLock);
-      if (lockedStr) {
-        const lockedIdx = CHROMATIC_SCALE.indexOf(lockedStr.note);
-        if (lockedIdx !== -1) {
-          fallbackIndex = lockedIdx;
-        }
-      }
-    }
-
-    const centerIndex = activeIndex !== -1 ? activeIndex : fallbackIndex;
+    // Use a smooth state or fallback to index 4 (E) if no active pitch is found.
+    const centerIndex = activeIndex !== -1 ? activeIndex : 4;
     const fractionalPos = centerIndex + (activeIndex !== -1 ? activeCents / 100 : 0);
 
     // Note spacing for high precision tape: 75px per note
     const noteSpacing = 75;
-
-    // Afterglow opacity calculation for smooth decaying indicator
-    let displayOpacity = 1.0;
-    if (isFromAfterglow && lastStrum) {
-      const elapsed = Date.now() - lastStrum.timestamp;
-      displayOpacity = Math.max(0, Math.min(1, 1 - (elapsed - 1000) / 3000));
-    }
 
     return (
       <div 
         id="chromatic-tone-wheel" 
         className="bg-neutral-900/65 border border-white/10 rounded-2xl p-4 flex flex-col justify-between items-center w-full max-w-xl md:max-w-2xl h-[168px] min-h-[168px] max-h-[168px] shadow-xl transition-[background-color,border-color] duration-300 relative overflow-hidden"
       >
-        <div className="w-full flex justify-between items-center mb-2.5 px-2 h-7" style={{ opacity: isFromAfterglow ? displayOpacity : 1 }}>
+        <div className="w-full flex justify-between items-center mb-2.5 px-2 h-7">
           <div className="flex flex-col text-left">
             <span className="text-[10px] uppercase tracking-[0.25em] text-white/50 font-bold block leading-none">
               CHROMATISCHER WALZEN-DETEKTOR 📻
@@ -1848,7 +1814,7 @@ export default function App() {
         <div className="relative w-full h-[70px] bg-black/55 rounded-xl border border-white/5 flex items-center justify-center overflow-hidden shadow-inner">
           
           {/* Vertical Center Hairline needle (The target alignment pointer) */}
-          <div className="absolute inset-y-0 w-[2.5px] z-20 pointer-events-none flex flex-col items-center justify-between" style={{ opacity: isFromAfterglow ? displayOpacity : 1 }}>
+          <div className="absolute inset-y-0 w-[2.5px] z-20 pointer-events-none flex flex-col items-center justify-between">
             {/* Bottom bead arrow */}
             <div className={`w-0 h-0 border-l-[4px] border-r-[4px] border-t-[5px] border-l-transparent border-r-transparent transition-colors duration-200 ${
               activeIndex !== -1 
@@ -2901,7 +2867,8 @@ export default function App() {
                     });
                   })()}
                 </div>
-                           {/* Subdued content center: Detected Note displayed like a glowing wood burned stamp */}
+
+                {/* Subdued content center: Detected Note displayed like a glowing wood burned stamp */}
                 <div className="relative z-20 flex flex-col items-center justify-center text-center select-none pointer-events-none mix-blend-screen">
                   {hasSignal && closestString ? (
                     <div className="flex flex-col items-center">
@@ -2919,32 +2886,9 @@ export default function App() {
                         {isInTune ? "STIMMT PERFEKT!" : `${centsDiff > 0 ? "ZU STRAMM" : "ZU SCHLAFF"}`}
                       </span>
                     </div>
-                  ) : lastStrum && (Date.now() - lastStrum.timestamp < 4000) ? (
-                    (() => {
-                      const elapsed = Date.now() - lastStrum.timestamp;
-                      const opacity = Math.max(0, Math.min(1, 1 - (elapsed - 1000) / 3000));
-                      const isLastStrumInTune = Math.abs(lastStrum.cents) <= 3;
-                      return (
-                        <div className="flex flex-col items-center" style={{ opacity }}>
-                          <span className={`text-[85px] sm:text-[105px] md:text-[115px] font-black tracking-tighter leading-none select-none transition-all duration-300 ${
-                            isLastStrumInTune 
-                              ? "text-green-400 drop-shadow-[0_0_25px_rgba(34,197,94,0.45)]" 
-                              : "text-white/90 drop-shadow-[0_4px_10px_rgba(0,0,0,0.85)]"
-                          }`}>
-                            {lastStrum.closestString.note}
-                            <span className="text-xl sm:text-2xl font-light text-white/40 align-super select-none ml-0.5">
-                              {lastStrum.closestString.pitch.replace(lastStrum.closestString.note, "")}
-                            </span>
-                          </span>
-                          <span className={`text-[9px] font-mono tracking-[0.25em] font-bold uppercase -mt-2 ${isLastStrumInTune ? "text-green-400" : "text-yellow-500/80"}`}>
-                            {isLastStrumInTune ? "STIMMT PERFEKT!" : `${lastStrum.cents > 0 ? "ZU STRAMM" : "ZU SCHLAFF"}`}
-                          </span>
-                        </div>
-                      );
-                    })()
                   ) : playingStringNum !== null ? (
                     (() => {
-                      const playingStr = tunedGuitarStrings.find(s => s.number === playingStringNum);
+                  const playingStr = tunedGuitarStrings.find(s => s.number === playingStringNum);
                       return playingStr ? (
                         <div className="flex flex-col items-center justify-center">
                           <span className="text-[85px] sm:text-[105px] font-black tracking-tighter text-green-400/90 leading-none drop-shadow-[0_0_20px_rgba(34,197,94,0.35)]">
@@ -2980,17 +2924,6 @@ export default function App() {
                   {/* Tick Gauge Elements */}
                   {(() => {
                     const elements = [];
-                    // Gather active values considering signal or lastStrum afterglow
-                    let activeIndicatorCents = centsDiff;
-                    let hasActiveIndicator = hasSignal;
-                    if (!hasSignal && lastStrum) {
-                      const elapsed = Date.now() - lastStrum.timestamp;
-                      if (elapsed < 4000) {
-                        activeIndicatorCents = lastStrum.cents;
-                        hasActiveIndicator = true;
-                      }
-                    }
-
                     // From -50 to +50 cents, steps of 5 cents
                     for (let c = -50; c <= 50; c += 5) {
                       const tickAngle = c * 1.35; // maps from -67.5 to +67.5 deg
@@ -3023,7 +2956,7 @@ export default function App() {
                       }
                       
                       // Highlight active tick if needle is close - super ultra thick glow
-                      const isLit = hasActiveIndicator && Math.abs(activeIndicatorCents - c) <= 2.5;
+                      const isLit = hasSignal && Math.abs(clampedCents - c) <= 2.5;
                       if (isLit) {
                         if (Math.abs(c) <= 3) {
                           tickColorClass = "stroke-green-400 stroke-[5.5px] drop-shadow-[0_0_12px_#22c55e]";
@@ -3055,7 +2988,7 @@ export default function App() {
                     x2="120" 
                     y2="66" 
                     className={`transition-all duration-300 ${
-                      (hasSignal && isInTune) || (!hasSignal && lastStrum && Date.now() - lastStrum.timestamp < 4000 && Math.abs(lastStrum.cents) <= 3)
+                      hasSignal && isInTune 
                         ? "stroke-green-400 stroke-[5px] drop-shadow-[0_0_12px_#22c55e]" 
                         : "stroke-white/40 stroke-[2.5px]"
                     }`} 
@@ -3063,25 +2996,7 @@ export default function App() {
 
                   {/* Sweep-Hand Needle Pointer */}
                   {(() => {
-                    let needleAngle = 0;
-                    let hasActiveIndicator = hasSignal;
-                    let activeCentsVal = centsDiff;
-                    let needleOpacity = 1.0;
-
-                    if (hasSignal) {
-                      needleAngle = clampedCents * 1.35;
-                    } else if (lastStrum) {
-                      const elapsed = Date.now() - lastStrum.timestamp;
-                      const opacity = Math.max(0, Math.min(1, 1 - (elapsed - 1000) / 3000));
-                      if (opacity > 0) {
-                        const lastClamped = Math.max(-50, Math.min(50, lastStrum.cents));
-                        needleAngle = lastClamped * 1.35;
-                        hasActiveIndicator = true;
-                        activeCentsVal = lastStrum.cents;
-                        needleOpacity = opacity;
-                      }
-                    }
-
+                    const needleAngle = hasSignal ? clampedCents * 1.35 : 0;
                     const angleRad = ((90 - needleAngle) * Math.PI) / 180;
                     const len = 112;
                     const targetX = 120 + len * Math.cos(angleRad);
@@ -3091,13 +3006,12 @@ export default function App() {
                     let glowFilter = "drop-shadow(0 0 6px rgba(245,158,11,0.65))";
                     let beadColor = "#f59e0b";
 
-                    if (hasActiveIndicator) {
-                      const isInTuneVal = Math.abs(activeCentsVal) <= 3;
-                      if (isInTuneVal) {
+                    if (hasSignal) {
+                      if (isInTune) {
                         needleColor = "stroke-green-400";
                         glowFilter = "drop-shadow(0 0 15px #22c55e) drop-shadow(0 0 5px #22c55e)";
                         beadColor = "#22c55e";
-                      } else if (Math.abs(activeCentsVal) <= 15) {
+                      } else if (Math.abs(centsDiff) <= 15) {
                         needleColor = "stroke-yellow-400";
                         glowFilter = "drop-shadow(0 0 12px #eab308) drop-shadow(0 0 4px #eab308)";
                         beadColor = "#eab308";
@@ -3114,7 +3028,7 @@ export default function App() {
                     }
 
                     return (
-                      <g style={{ filter: glowFilter, opacity: needleOpacity }} className="transition-all duration-150 ease-out">
+                      <g style={{ filter: glowFilter }} className="transition-all duration-150 ease-out">
                         {/* Needle line body - Upgraded to stroke-[6px] for bold presence */}
                         <line 
                           x1="120" 
@@ -3162,7 +3076,7 @@ export default function App() {
                   {/* Massive Bold Character Wrapper with custom fixed heights to prevent jumps */}
                   <div className="h-[140px] sm:h-[190px] md:h-[240px] flex items-center justify-center relative w-full">
                     <div 
-                       id="huge-note-indicator" 
+                      id="huge-note-indicator" 
                       className={`text-[120px] sm:text-[180px] md:text-[220px] leading-none font-black tracking-tighter transition-all duration-150 ${
                         isInTune 
                           ? "text-green-400 drop-shadow-[0_0_35px_rgba(34,197,94,0.25)]" 
@@ -3176,32 +3090,6 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-              ) : lastStrum && (Date.now() - lastStrum.timestamp < 4000) ? (
-                (() => {
-                  const elapsed = Date.now() - lastStrum.timestamp;
-                  const opacity = Math.max(0, Math.min(1, 1 - (elapsed - 1000) / 3000));
-                  const isLastStrumInTune = Math.abs(lastStrum.cents) <= 3;
-                  return (
-                    <div className="flex flex-col items-center justify-center w-full h-full" style={{ opacity }}>
-                      {/* Massive Bold Character Wrapper with custom fixed heights to prevent jumps */}
-                      <div className="h-[140px] sm:h-[190px] md:h-[240px] flex items-center justify-center relative w-full">
-                        <div 
-                          id="huge-note-indicator" 
-                          className={`text-[120px] sm:text-[180px] md:text-[220px] leading-none font-black tracking-tighter transition-all duration-150 ${
-                            isLastStrumInTune 
-                              ? "text-green-400 drop-shadow-[0_0_35px_rgba(34,197,94,0.25)]" 
-                              : "text-white"
-                          }`}
-                        >
-                          {lastStrum.closestString.note}
-                          <span className="text-2xl sm:text-3xl md:text-4xl align-top font-light text-white/35 ml-1 inline-block">
-                            {lastStrum.closestString.pitch.replace(lastStrum.closestString.note, "")}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()
               ) : playingStringNum !== null ? (
                 (() => {
                   const playingStr = tunedGuitarStrings.find(s => s.number === playingStringNum);
