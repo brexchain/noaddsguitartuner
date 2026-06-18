@@ -986,9 +986,20 @@ export default function App() {
               cents = res.centsDiff;
             }
           } else {
-            const res = findClosestGuitarString(freq, referenceA4Ref.current);
-            closestStr = res.closestString;
-            cents = res.centsDiff;
+            // Under Auto-Detect: We are a chromatic tuner!
+            // 1. Detect the closest chromatic note across all 12 semitones
+            const chrom = findClosestChromaticNote(freq, referenceA4Ref.current);
+            // 2. To keep the physical guitar neck and string visuals working perfectly,
+            // find the closest standard physical string (1 to 6)
+            const standardRes = findClosestGuitarString(freq, referenceA4Ref.current);
+            
+            closestStr = {
+              number: standardRes.closestString.number,
+              note: chrom.note,
+              pitch: `${chrom.note}${chrom.octave}`,
+              frequency: chrom.frequency
+            };
+            cents = chrom.centsDiff;
           }
 
           // Apply specialized exponential smoothing (EMA) for rock-solid visual feedback
@@ -1754,11 +1765,10 @@ export default function App() {
     let displayOctave: number | null = null;
     let isFromAfterglow = false;
 
-    if (hasSignal && frequency > 0) {
-      const chrom = findClosestChromaticNote(frequency, referenceA4);
-      activeNoteName = chrom.note;
-      activeCents = chrom.centsDiff;
-      displayOctave = chrom.octave;
+    if (hasSignal && frequency > 0 && closestString) {
+      activeNoteName = closestString.note;
+      activeCents = centsDiff;
+      displayOctave = parseInt(closestString.pitch.replace(/[^0-9]/g, "")) || null;
     } else if (lastStrum && (Date.now() - lastStrum.timestamp < 4000)) {
       activeNoteName = lastStrum.closestString.note;
       activeCents = lastStrum.cents;
