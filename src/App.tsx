@@ -443,6 +443,9 @@ export default function App() {
     timestamp: number;
   } | null>(null);
 
+  // WhatsApp feedback flow state variable
+  const [whatsappMessage, setWhatsappMessage] = useState<string>("");
+
   // Smoothing filters state trackers
   const lastFreqRef = useRef<number>(-1);
   const lastCentsRef = useRef<number>(0);
@@ -2896,7 +2899,7 @@ export default function App() {
                 <button
                   id="soundhole-rotate-btn"
                   onClick={() => setSoundholeRotation((prev) => (prev + 90) % 360)}
-                  className="absolute top-2 left-2 z-30 flex items-center gap-1.5 px-3 py-1.5 bg-neutral-950/90 hover:bg-neutral-800 border border-white/10 hover:border-white/20 rounded-full text-[9px] uppercase tracking-wider font-extrabold text-[#F5F5F5] transition-all cursor-pointer select-none active:scale-95 shadow-xl"
+                  className="absolute top-2 right-2 z-30 flex items-center gap-1.5 px-3 py-1.5 bg-neutral-950/90 hover:bg-neutral-800 border border-white/10 hover:border-white/20 rounded-full text-[9px] uppercase tracking-wider font-extrabold text-[#F5F5F5] transition-all cursor-pointer select-none active:scale-95 shadow-xl"
                   title="Gitarre drehen / Turn Instrument (90° steps)"
                 >
                   <RotateCw size={10} className="text-amber-400" />
@@ -2969,7 +2972,65 @@ export default function App() {
                       };
                     });
 
-                    return [...stringPositions].reverse().map((str) => {
+                    const reversedList = [...stringPositions].reverse();
+
+                    if (selectedInstrumentId === "guitar12") {
+                      // Group elements of reversedList into pairs of two (6 courses)
+                      const courses: (typeof reversedList)[] = [];
+                      for (let i = 0; i < reversedList.length; i += 2) {
+                        courses.push(reversedList.slice(i, i + 2));
+                      }
+
+                      return courses.map((course, courseIdx) => {
+                        // Standard 12-string guitars place the thin octave string first (on the left),
+                        // followed by the thicker prime/standard string (on the right) for the E, A, D, and G courses.
+                        // Reversing each course pair turns search order [thick, thin] into physical [thin, thick] perfectly!
+                        const orderedCourse = [...course].reverse();
+                        return (
+                          <div key={courseIdx} className="h-full flex gap-1.5 sm:gap-2.5 items-stretch relative">
+                            {orderedCourse.map((str) => {
+                              const isDetected = hasSignal && closestString?.number === str.num;
+                              const isBrummtonActive = playingStringNum === str.num;
+                              const shouldVibrate = isDetected || isBrummtonActive;
+
+                              let stringColor = "bg-gradient-to-r from-zinc-500 via-zinc-400 to-zinc-600 shadow-[1px_0_1px_rgba(0,0,0,0.4)]";
+                              if (shouldVibrate) {
+                                stringColor = "bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-500 shadow-[0_0_10px_rgb(234,179,8),0_0_2px_white]";
+                              }
+
+                              const isTrebleLimit = str.num === 1;
+                              const isBassLimit = str.num === tunedGuitarStrings.length;
+
+                              return (
+                                <div key={str.num} className="h-full flex flex-col items-center relative opacity-85">
+                                  {/* Label at bottom with high-contrast visibility and inverse rotation, placed below needle center */}
+                                  <div 
+                                    className={`absolute top-[80%] font-mono text-[9px] sm:text-[10px] font-bold transition-all duration-300 z-20 ${
+                                      isDetected 
+                                        ? "text-yellow-400 font-extrabold scale-110 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]" 
+                                        : isTrebleLimit 
+                                        ? "text-sky-400 font-extrabold drop-shadow-[0_0_4px_rgba(56,189,248,0.5)]" 
+                                        : isBassLimit 
+                                        ? "text-orange-400 font-extrabold drop-shadow-[0_0_4px_rgba(251,146,60,0.5)]" 
+                                        : "text-amber-100/75 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
+                                    }`}
+                                    style={{ transform: `rotate(${-soundholeRotation}deg)` }}
+                                  >
+                                    {str.pitch}
+                                  </div>
+
+                                  <div 
+                                    className={`h-full ${str.thickness} ${stringColor} transition-all duration-300 ${shouldVibrate ? "animate-string-vibrate" : ""}`} 
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      });
+                    }
+
+                    return reversedList.map((str) => {
                       const isDetected = hasSignal && closestString?.number === str.num;
                       
                       // Check if manual audio bummton is playing this string
@@ -2988,20 +3049,20 @@ export default function App() {
 
                       return (
                         <div key={str.num} className="h-full flex flex-col items-center relative opacity-80">
-                          {/* Label at top background with custom coloring and inverse rotation to stay readable */}
+                          {/* Label at bottom with high-contrast visibility and inverse rotation, placed below needle center */}
                           <div 
-                            className={`absolute top-[26%] font-mono text-[9px] sm:text-[10px] font-bold transition-all duration-300 z-20 ${
+                            className={`absolute top-[80%] font-mono text-[9px] sm:text-[10px] font-bold transition-all duration-300 z-20 ${
                               isDetected 
-                                ? "text-yellow-400 font-extrabold scale-110" 
+                                ? "text-yellow-400 font-extrabold scale-110 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]" 
                                 : isTrebleLimit 
-                                ? "text-sky-400 font-extrabold drop-shadow-[0_0_4px_rgba(56,189,248,0.4)]" 
+                                ? "text-sky-400 font-extrabold drop-shadow-[0_0_4px_rgba(56,189,248,0.5)]" 
                                 : isBassLimit 
-                                ? "text-orange-400 font-extrabold drop-shadow-[0_0_4px_rgba(251,146,60,0.4)]" 
-                                : "text-white/35"
+                                ? "text-orange-400 font-extrabold drop-shadow-[0_0_4px_rgba(251,146,60,0.5)]" 
+                                : "text-amber-100/75 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
                             }`}
                             style={{ transform: `rotate(${-soundholeRotation}deg)` }}
                           >
-                            {isTrebleLimit || isBassLimit ? str.pitch : str.label}
+                            {str.pitch}
                           </div>
 
                           <div 
@@ -4275,6 +4336,103 @@ export default function App() {
                     : "STUMM"
               }
             </span>
+          </div>
+        </div>
+
+        {/* ==================== WHATSAPP FEEDBACK AREA ==================== */}
+        <div id="whatsapp-feedback-card" className="mt-6 bg-neutral-900/40 border border-white/5 rounded-2xl p-5 sm:p-6 flex flex-col gap-4 shadow-xl select-none animate-fade-in relative z-20">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
+            <div>
+              <h4 className="text-xs uppercase tracking-[0.2em] text-white/40 font-bold flex items-center gap-1.5">
+                <span className="text-sm">💬</span>
+                <span>Feedback & Vorschläge / Recommendations</span>
+              </h4>
+              <p className="text-[10px] text-white/20 mt-1 font-mono">
+                Wähle eine Vorlage oder tippe eigenes Feedback ein, um den grünen WhatsApp-Button freizuschalten.
+              </p>
+            </div>
+          </div>
+
+          {/* Feedback Presets Buttons */}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setWhatsappMessage("Hallo! Der Tuner ist super präzise, besonders der neue 12-Saiter Modus funktioniert echt hervorragend! 🎸⭐")}
+              className="px-3 py-1.5 rounded-full bg-emerald-950/40 hover:bg-emerald-950/60 border border-emerald-500/20 hover:border-emerald-500/45 text-emerald-300 text-[10px] font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1"
+            >
+              <span>👍 Super präzise (Gut)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setWhatsappMessage("Hi! Ich würde mir als Verbesserung einen integrierten Drum-Groove, ein Metronom und mehr Stimmungs-Presets wie Drop-D oder Open-G wünschen! 🥁")}
+              className="px-3 py-1.5 rounded-full bg-blue-950/40 hover:bg-blue-950/60 border border-blue-500/20 hover:border-blue-500/45 text-blue-300 text-[10px] font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1"
+            >
+              <span>💡 Verbesserungsvorschläge</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setWhatsappMessage("Hallo, ich habe festgestellt, dass der Tuner manchmal bei extrem tiefen Bassfrequenzen oder Nebengeräuschen etwas unruhig reagiert. 🔍")}
+              className="px-3 py-1.5 rounded-full bg-red-950/40 hover:bg-red-950/60 border border-red-500/20 hover:border-red-500/45 text-red-300 text-[10px] font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1"
+            >
+              <span>👎 Optimierungspotenzial (Kritik)</span>
+            </button>
+          </div>
+
+          {/* Simple textbox preview and manual editing */}
+          <div className="relative">
+            <textarea
+              value={whatsappMessage}
+              onChange={(e) => setWhatsappMessage(e.target.value)}
+              placeholder="Schreibe dein Feedback hier hinein oder wähle oben eines der Presets aus..."
+              className="w-full h-24 bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-all font-sans resize-none"
+            />
+            {whatsappMessage.trim() && (
+              <button
+                type="button"
+                onClick={() => setWhatsappMessage("")}
+                className="absolute right-2.5 bottom-2.5 text-[9px] font-mono text-white/40 hover:text-white/80 bg-white/5 hover:bg-white/10 px-2 py-1 rounded transition-all cursor-pointer border border-white/5"
+              >
+                Löschen
+              </button>
+            )}
+          </div>
+
+          {/* Senden Button Row */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+            <div className="text-[10px] font-mono leading-none">
+              {whatsappMessage.trim() ? (
+                <span className="text-emerald-400 flex items-center gap-1.5 font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse shadow-[0_0_8px_#34d399]" />
+                  Bereit zum Abschicken an +43 650 8278461 📞
+                </span>
+              ) : (
+                <span className="text-white/30 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white/10 inline-block" />
+                  Bitte Feedback eingeben oder ein Preset anklicken...
+                </span>
+              )}
+            </div>
+
+            <a
+              href={whatsappMessage.trim() ? `https://wa.me/436508278461?text=${encodeURIComponent(whatsappMessage.trim())}` : undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                if (!whatsappMessage.trim()) {
+                  e.preventDefault();
+                }
+              }}
+              className={`w-full sm:w-auto px-6 py-2.5 rounded-xl font-mono text-xs font-black uppercase tracking-wider transition-all shadow-md select-none flex items-center justify-center gap-2 text-center pointer-events-auto ${
+                whatsappMessage.trim()
+                  ? "bg-emerald-500 hover:bg-emerald-400 text-neutral-950 cursor-pointer shadow-[0_4px_14px_rgba(16,185,129,0.3)] active:scale-[0.98]"
+                  : "bg-neutral-800 text-white/20 border border-white/5 cursor-not-allowed opacity-40"
+              }`}
+            >
+              <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12.012 3c-4.832 0-8.75 3.917-8.75 8.75 0 1.543.4 3.012 1.137 4.293L3.13 20.87a.498.498 0 0 0 .614.614l4.827-1.269a8.681 8.681 0 0 0 3.44.734c4.833 0 8.75-3.917 8.75-8.75S16.845 3 12.012 3zm0 16.035c-1.464 0-2.833-.42-4.004-1.127a.5.5 0 0 0-.44-.04l-3.344.879.879-3.344a.5.5 0 0 0-.04-.44 7.29 7.29 0 0 1-1.127-4.004c0-4.041 3.284-7.325 7.325-7.325s7.325 3.284 7.325 7.325-3.284 7.325-7.325 7.325z" />
+              </svg>
+              <span>Senden / Send Message</span>
+            </a>
           </div>
         </div>
 
