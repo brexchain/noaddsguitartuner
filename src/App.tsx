@@ -336,7 +336,7 @@ export default function App() {
   // COMMIT: Refactored background theme options to support Dark Mode, Sunshine Mode (warm gold/yellowish), and Park Mode (soothing green).
   // Added horizontal scrolling to main toolbar header on mobile and compacted element sizing to fit screens elegantly.
   const [themeMode, setThemeMode] = useState<"dark" | "sunshine" | "park">(() => {
-    return (localStorage.getItem("appThemeMode") as "dark" | "sunshine" | "park") || "dark";
+    return (localStorage.getItem("appThemeMode") as "dark" | "sunshine" | "park") || "sunshine";
   });
 
   useEffect(() => {
@@ -398,6 +398,7 @@ export default function App() {
   const [isModusDropdownOpen, setIsModusDropdownOpen] = useState<boolean>(false);
   const [displayMode, setDisplayMode] = useState<"soundhole" | "led-bar">("soundhole");
   const [isDisplayDropdownOpen, setIsDisplayDropdownOpen] = useState<boolean>(false);
+  const [soundholeRotation, setSoundholeRotation] = useState<number>(0);
   const [fretboardRotation, setFretboardRotation] = useState<number>(0);
   const [selectedChord, setSelectedChord] = useState<Chord | null>(COMMON_CHORDS[0]);
   const [chordFilter, setChordFilter] = useState<"all" | "basis" | "7th" | "barre" | "sus" | "dim" | "pentatonic" | "caged">("all");
@@ -2879,6 +2880,7 @@ export default function App() {
                 </div>
               )}
             </div>
+
           </div>
         </div>
 
@@ -2889,9 +2891,23 @@ export default function App() {
           <div className="flex-1 flex flex-col items-center justify-center w-full min-h-[360px] sm:min-h-[440px]">
             {displayMode === "soundhole" ? (
               /* ==================== ACOUSTIC SOUNDHOLE CALIBRATOR ==================== */
-              <div className="relative z-10 flex flex-col items-center justify-center w-full my-auto">
+              <div id="soundhole-container" className="relative z-10 flex flex-col items-center justify-center w-full my-auto">
+                {/* 90-Degree Rotation Button integrated inside the top left corner of the container area */}
+                <button
+                  id="soundhole-rotate-btn"
+                  onClick={() => setSoundholeRotation((prev) => (prev + 90) % 360)}
+                  className="absolute top-2 left-2 z-30 flex items-center gap-1.5 px-3 py-1.5 bg-neutral-950/90 hover:bg-neutral-800 border border-white/10 hover:border-white/20 rounded-full text-[9px] uppercase tracking-wider font-extrabold text-[#F5F5F5] transition-all cursor-pointer select-none active:scale-95 shadow-xl"
+                  title="Gitarre drehen / Turn Instrument (90° steps)"
+                >
+                  <RotateCw size={10} className="text-amber-400" />
+                  <span>DREHEN ({soundholeRotation}°)</span>
+                </button>
+
             {/* The Rosette Body container */}
-            <div className="relative z-10 w-64 h-64 sm:w-[290px] sm:h-[290px] md:w-[325px] md:h-[325px] rounded-full p-[10px] bg-gradient-to-br from-[#8C5230] via-[#5C3218] to-[#2B1408] shadow-[0_20px_50px_rgba(0,0,0,0.85),inset_0_2px_12px_rgba(255,255,255,0.15)] border border-[#8C5230]/40 flex items-center justify-center select-none transition-all">
+            <div 
+              className="relative z-10 w-64 h-64 sm:w-[290px] sm:h-[290px] md:w-[325px] md:h-[325px] rounded-full p-[10px] bg-gradient-to-br from-[#8C5230] via-[#5C3218] to-[#2B1408] shadow-[0_20px_50px_rgba(0,0,0,0.85),inset_0_2px_12px_rgba(255,255,255,0.15)] border border-[#8C5230]/40 flex items-center justify-center select-none transition-all duration-500 ease-out"
+              style={{ transform: `rotate(${soundholeRotation}deg)` }}
+            >
               
               {/* Wooden Inlaid Concentric Rosette Rings */}
               <div className="absolute inset-4 rounded-full border-4 border-double border-yellow-600/35 pointer-events-none" />
@@ -2948,11 +2964,12 @@ export default function App() {
                       return {
                         num: str.number,
                         label: str.note,
+                        pitch: str.pitch,
                         thickness
                       };
                     });
 
-                    return stringPositions.map((str) => {
+                    return [...stringPositions].reverse().map((str) => {
                       const isDetected = hasSignal && closestString?.number === str.num;
                       
                       // Check if manual audio bummton is playing this string
@@ -2965,11 +2982,26 @@ export default function App() {
                         stringColor = "bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-500 shadow-[0_0_10px_rgb(234,179,8),0_0_2px_white]";
                       }
 
+                      // Coloring difference: High treble vs Low bass
+                      const isTrebleLimit = str.num === 1;
+                      const isBassLimit = str.num === tunedGuitarStrings.length;
+
                       return (
                         <div key={str.num} className="h-full flex flex-col items-center relative opacity-80">
-                          {/* Label at top background */}
-                          <div className={`absolute top-4 sm:top-5 font-mono text-[9px] font-bold ${isDetected ? "text-yellow-400 font-extrabold" : "text-white/10"}`}>
-                            {str.label}
+                          {/* Label at top background with custom coloring and inverse rotation to stay readable */}
+                          <div 
+                            className={`absolute top-[26%] font-mono text-[9px] sm:text-[10px] font-bold transition-all duration-300 z-20 ${
+                              isDetected 
+                                ? "text-yellow-400 font-extrabold scale-110" 
+                                : isTrebleLimit 
+                                ? "text-sky-400 font-extrabold drop-shadow-[0_0_4px_rgba(56,189,248,0.4)]" 
+                                : isBassLimit 
+                                ? "text-orange-400 font-extrabold drop-shadow-[0_0_4px_rgba(251,146,60,0.4)]" 
+                                : "text-white/35"
+                            }`}
+                            style={{ transform: `rotate(${-soundholeRotation}deg)` }}
+                          >
+                            {isTrebleLimit || isBassLimit ? str.pitch : str.label}
                           </div>
 
                           <div 
@@ -2982,7 +3014,10 @@ export default function App() {
                 </div>
 
                 {/* Subdued content center: Detected Note displayed like a glowing wood burned stamp */}
-                <div className="relative z-20 flex flex-col items-center justify-center text-center select-none pointer-events-none mix-blend-screen">
+                <div 
+                  className="relative z-20 flex flex-col items-center justify-center text-center select-none pointer-events-none mix-blend-screen transition-transform duration-500 ease-out"
+                  style={{ transform: `rotate(${-soundholeRotation}deg)` }}
+                >
                   {hasSignal && closestString ? (
                     <div className="flex flex-col items-center">
                       <span className={`text-[85px] sm:text-[105px] md:text-[115px] font-black tracking-tighter leading-none select-none transition-all duration-300 ${
