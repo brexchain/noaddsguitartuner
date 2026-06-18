@@ -57,8 +57,8 @@ const COMMON_CHORDS: Chord[] = [
   { name: "Dm", frets: ["X", "X", 0, 2, 3, 1], fingering: [null, null, null, "2", "3", "1"], tags: ["basis"] },
   { name: "Em", frets: [0, 2, 2, 0, 0, 0], fingering: [null, "2", "3", null, null, null], tags: ["basis"] },
   // Barré-Griffe: All major/minor barre chords across the neck with root on E2 (E-shape) & A2 (A-shape)
-  { name: "F (Dur)", frets: [1, 3, 3, 2, 1, 1], fingering: ["1", "3", "4", "2", "1", "1"], barre: { fret: 1, fromStringIdx: 0, toStringIdx: 5 }, rootStringIdx: 0, tags: ["barre"] },
-  { name: "Fm (Moll)", frets: [1, 3, 3, 1, 1, 1], fingering: ["1", "3", "4", "1", "1", "1"], barre: { fret: 1, fromStringIdx: 0, toStringIdx: 5 }, rootStringIdx: 0, tags: ["barre"] },
+  { name: "F (Dur)", frets: [1, 3, 3, 2, 1, 1], fingering: ["1", "3", "4", "2", "1", "1"], barre: { fret: 1, fromStringIdx: 0, toStringIdx: 5 }, rootStringIdx: 0, tags: ["barre", "basis"] },
+  { name: "Fm (Moll)", frets: [1, 3, 3, 1, 1, 1], fingering: ["1", "3", "4", "1", "1", "1"], barre: { fret: 1, fromStringIdx: 0, toStringIdx: 5 }, rootStringIdx: 0, tags: ["barre", "basis"] },
   { name: "F# (Dur)", frets: [2, 4, 4, 3, 2, 2], fingering: ["1", "3", "4", "2", "1", "1"], barre: { fret: 2, fromStringIdx: 0, toStringIdx: 5 }, rootStringIdx: 0, tags: ["barre"] },
   { name: "F#m (Moll)", frets: [2, 4, 4, 2, 2, 2], fingering: ["1", "3", "4", "1", "1", "1"], barre: { fret: 2, fromStringIdx: 0, toStringIdx: 5 }, rootStringIdx: 0, tags: ["barre"] },
   { name: "G (Dur B.)", frets: [3, 5, 5, 4, 3, 3], fingering: ["1", "3", "4", "2", "1", "1"], barre: { fret: 3, fromStringIdx: 0, toStringIdx: 5 }, rootStringIdx: 0, tags: ["barre"] },
@@ -73,10 +73,10 @@ const COMMON_CHORDS: Chord[] = [
   { name: "Hm (Moll B.)", frets: [7, 9, 9, 7, 7, 7], fingering: ["1", "3", "4", "1", "1", "1"], barre: { fret: 7, fromStringIdx: 0, toStringIdx: 5 }, rootStringIdx: 0, tags: ["barre"] },
 
   // A-Form Barré-Griffe (Root on A string)
-  { name: "B / Bb (Dur B. A-Typ)", frets: ["X", 1, 3, 3, 3, 1], fingering: [null, "1", "3", "3", "3", "1"], barre: { fret: 1, fromStringIdx: 1, toStringIdx: 5 }, rootStringIdx: 1, tags: ["barre"] },
-  { name: "Bm / Bbm (Moll B. A-Typ)", frets: ["X", 1, 3, 3, 2, 1], fingering: [null, "1", "3", "4", "2", "1"], barre: { fret: 1, fromStringIdx: 1, toStringIdx: 5 }, rootStringIdx: 1, tags: ["barre"] },
-  { name: "H (Dur B. A-Typ)", frets: ["X", 2, 4, 4, 4, 2], fingering: [null, "1", "3", "3", "3", "1"], barre: { fret: 2, fromStringIdx: 1, toStringIdx: 5 }, rootStringIdx: 1, tags: ["barre"] },
-  { name: "Hm (Moll B. A-Typ)", frets: ["X", 2, 4, 4, 3, 2], fingering: [null, "1", "3", "4", "2", "1"], barre: { fret: 2, fromStringIdx: 1, toStringIdx: 5 }, rootStringIdx: 1, tags: ["barre"] },
+  { name: "B / Bb (Dur)", frets: ["X", 1, 3, 3, 3, 1], fingering: [null, "1", "3", "3", "3", "1"], barre: { fret: 1, fromStringIdx: 1, toStringIdx: 5 }, rootStringIdx: 1, tags: ["barre", "basis"] },
+  { name: "Bm / Bbm (Moll)", frets: ["X", 1, 3, 3, 2, 1], fingering: [null, "1", "3", "4", "2", "1"], barre: { fret: 1, fromStringIdx: 1, toStringIdx: 5 }, rootStringIdx: 1, tags: ["barre", "basis"] },
+  { name: "H / B-natural (Dur)", frets: ["X", 2, 4, 4, 4, 2], fingering: [null, "1", "3", "3", "3", "1"], barre: { fret: 2, fromStringIdx: 1, toStringIdx: 5 }, rootStringIdx: 1, tags: ["barre", "basis"] },
+  { name: "Hm / Bm (Moll)", frets: ["X", 2, 4, 4, 3, 2], fingering: [null, "1", "3", "4", "2", "1"], barre: { fret: 2, fromStringIdx: 1, toStringIdx: 5 }, rootStringIdx: 1, tags: ["barre", "basis"] },
   { name: "C (Dur B. A-Typ)", frets: ["X", 3, 5, 5, 5, 3], fingering: [null, "1", "3", "3", "3", "1"], barre: { fret: 3, fromStringIdx: 1, toStringIdx: 5 }, rootStringIdx: 1, tags: ["barre"] },
   { name: "Cm (Moll B. A-Typ)", frets: ["X", 3, 5, 5, 4, 3], fingering: [null, "1", "3", "4", "2", "1"], barre: { fret: 3, fromStringIdx: 1, toStringIdx: 5 }, rootStringIdx: 1, tags: ["barre"] },
   { name: "C# / Db (Dur B. A-Typ)", frets: ["X", 4, 6, 6, 6, 4], fingering: [null, "1", "3", "3", "3", "1"], barre: { fret: 4, fromStringIdx: 1, toStringIdx: 5 }, rootStringIdx: 1, tags: ["barre"] },
