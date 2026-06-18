@@ -20,7 +20,7 @@
  */
 
 import { useEffect, useRef, useState, CSSProperties } from "react";
-import { Mic, MicOff, Volume2, Info, Settings, Zap, CheckCircle2, RefreshCw, Target, Radio, Play, Pause, ChevronDown, X, RotateCw, Sun, SunDim } from "lucide-react";
+import { Mic, MicOff, Volume2, Info, Settings, Zap, CheckCircle2, RefreshCw, Target, Radio, Play, Pause, ChevronDown, X, RotateCw, Sun, SunDim, Trees } from "lucide-react";
 import { STANDARD_GUITAR_STRINGS, GuitarString } from "./types";
 import { detectGuitarPitch, findClosestGuitarString, findClosestChromaticNote } from "./utils/audioProcessor";
 
@@ -332,13 +332,16 @@ export default function App() {
   const [isListening, setIsListening] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [bypassPermissionOverlay, setBypassPermissionOverlay] = useState<boolean>(false);
-  const [isSunshineMode, setIsSunshineMode] = useState<boolean>(() => {
-    return localStorage.getItem("isSunshineMode") === "true";
+
+  // COMMIT: Refactored background theme options to support Dark Mode, Sunshine Mode (warm gold/yellowish), and Park Mode (soothing green).
+  // Added horizontal scrolling to main toolbar header on mobile and compacted element sizing to fit screens elegantly.
+  const [themeMode, setThemeMode] = useState<"dark" | "sunshine" | "park">(() => {
+    return (localStorage.getItem("appThemeMode") as "dark" | "sunshine" | "park") || "dark";
   });
 
   useEffect(() => {
-    localStorage.setItem("isSunshineMode", isSunshineMode.toString());
-  }, [isSunshineMode]);
+    localStorage.setItem("appThemeMode", themeMode);
+  }, [themeMode]);
 
   // Live tuning state (throttled/smoothed)
   const [tuningData, setTuningData] = useState<{
@@ -1713,7 +1716,9 @@ export default function App() {
 
   return (
     <div className={`h-screen max-h-screen overflow-hidden ${
-      isSunshineMode ? "bg-[#FAF5EA] text-[#241D15] sunshine-mode" : "bg-[#0A0A0A] text-[#F5F5F5]"
+      themeMode === "sunshine" ? "bg-[#FFF9E6] text-[#2C1E0A] sunshine-mode" :
+      themeMode === "park" ? "bg-[#CDE7C9] text-[#0E2911] park-mode" :
+      "bg-[#0A0A0A] text-[#F5F5F5]"
     } flex flex-col justify-between font-sans transition-all duration-300 relative select-none`}>
       
       {bypassPermissionOverlay && permissionState !== "granted" && (
@@ -1737,16 +1742,18 @@ export default function App() {
       )}
 
       {/* Design Header: Status Bar Layout */}
-      <header className={`flex justify-between items-center px-6 sm:px-10 py-4 sm:py-5 border-b transition-all duration-300 relative gap-4 ${
-        isSunshineMode ? "bg-[#FAF5EA] border-[#EADBCE]" : "bg-[#0A0A0A] border-white/10"
+      <header className={`flex items-center w-full px-2 sm:px-10 py-3 sm:py-5 border-b transition-all duration-300 relative gap-1.5 sm:gap-4 justify-between ${
+        themeMode === "sunshine" ? "bg-[#FFF9E6] border-[#EEDBA5]" :
+        themeMode === "park" ? "bg-[#EAF4E8] border-[#C5DBBF]" :
+        "bg-[#0A0A0A] border-white/10"
       } ${isModusDropdownOpen ? "z-40" : "z-10"}`}>
         {/* Device Status Segment */}
         <button 
           id="mic-head-toggle-btn"
           onClick={isListening ? stopTuningEngine : startTuningEngine}
-          className="flex items-center bg-neutral-900/50 border border-white/10 hover:border-white/20 rounded-xl hover:bg-neutral-800/40 active:scale-95 transition-all text-left shadow-lg cursor-pointer group px-3.5 py-1.5 gap-2.5"
+          className="flex-1 md:flex-initial min-w-0 flex items-center justify-center sm:justify-start bg-neutral-900/50 border border-white/10 hover:border-white/20 rounded-xl hover:bg-neutral-800/40 active:scale-95 transition-all text-left shadow-lg cursor-pointer group px-1 sm:px-3.5 py-1.5 gap-1 sm:gap-2.5"
         >
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
             <div className="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-lg bg-neutral-950/80 border border-white/5 relative transition-all">
               {isListening ? (
                 <>
@@ -1757,11 +1764,11 @@ export default function App() {
                 <MicOff size={13} className="text-red-400" />
               )}
             </div>
-            <div className="flex flex-col leading-tight">
-              <span className="text-[8px] uppercase tracking-[0.25em] text-white/45 font-bold">
+            <div className="flex flex-col leading-tight min-w-0">
+              <span className="text-[8px] uppercase tracking-[0.12em] sm:tracking-[0.25em] text-white/45 font-bold truncate">
                 Lauscher
               </span>
-              <span className={`text-[11px] font-mono font-bold uppercase transition-colors ${isListening ? "text-green-400" : "text-white/60"}`}>
+              <span className={`text-[10px] sm:text-[11px] font-mono font-bold uppercase transition-colors truncate ${isListening ? "text-green-400" : "text-white/60"}`}>
                 {isListening ? "Aktiv" : "Aus"}
               </span>
             </div>
@@ -1769,10 +1776,10 @@ export default function App() {
         </button>
         
         {/* Reference Segment */}
-        <div className="flex flex-col text-center">
+        <div className="flex-1 md:flex-initial min-w-0">
           <div 
             id="kammerton-toggle-container"
-            className="flex items-center bg-neutral-900/50 border border-white/10 rounded-xl hover:border-white/20 hover:bg-neutral-800/40 shadow-lg p-1 gap-1"
+            className="flex items-center justify-center sm:justify-start bg-neutral-900/50 border border-white/10 rounded-xl hover:border-white/20 hover:bg-neutral-800/40 shadow-lg p-0.5 sm:p-1 gap-1 sm:gap-1.5 w-full h-full"
           >
             {/* Play Button Trigger */}
             <button
@@ -1782,11 +1789,7 @@ export default function App() {
                 e.stopPropagation();
                 playReferencePitch(referenceA4, 99);
               }}
-              className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
-                playingStringNum === 99 
-                  ? "bg-amber-950/40 border-amber-500/30 text-amber-400 animate-pulse-slow" 
-                  : "bg-neutral-950/80 border-white/5 hover:border-white/15 text-white/50 hover:text-white"
-              }`}
+              className="w-7 h-7 rounded-lg border flex items-center justify-center transition-all cursor-pointer bg-neutral-950/80 border-white/5 hover:border-white/15 text-white/50 hover:text-white shrink-0"
             >
               {playingStringNum === 99 ? (
                 <Pause size={10} className="fill-current" />
@@ -1808,19 +1811,19 @@ export default function App() {
                   }, 50);
                 }
               }}
-              className="flex flex-col leading-tight px-2.5 py-1 text-left select-none cursor-pointer group rounded-lg hover:bg-white/5"
+              className="flex flex-col leading-tight px-1 py-0.5 sm:px-2.5 sm:py-1 text-left select-none cursor-pointer group rounded-lg hover:bg-white/5 min-w-0"
             >
-              <span className="text-[8px] uppercase tracking-[0.25em] text-white/45 font-bold mb-0.5">
+              <span className="text-[8px] uppercase tracking-[0.12em] sm:tracking-[0.25em] text-white/45 font-bold mb-0.5 truncate">
                 Kammerton
               </span>
-              <span className="text-[11px] font-mono font-bold text-white/80 uppercase flex items-center gap-1.5">
-                A4 = <span className={referenceA4 === 432 ? "text-amber-400 font-extrabold" : "text-white"}>{referenceA4} Hz</span>
-                <span className={`text-[8px] font-sans px-1 py-[1px] rounded uppercase scale-90 ${
+              <span className="text-[10px] sm:text-[11px] font-mono font-bold text-white/80 uppercase flex items-center gap-1 min-w-0 truncate">
+                A4=<span className={referenceA4 === 432 ? "text-amber-400 font-extrabold" : "text-white"}>{referenceA4}</span>
+                <span className={`text-[8.5px] scale-80 font-sans px-1 py-[0.5px] rounded uppercase hidden xl:inline-block ${
                   referenceA4 === 432 
                     ? "bg-amber-500/10 text-amber-400 border border-amber-500/30 animate-pulse" 
                     : "bg-white/5 text-white/40"
                 }`}>
-                  {referenceA4 === 432 ? "Heilsam ✨" : "Standard"}
+                  {referenceA4 === 432 ? "Klang" : "Std"}
                 </span>
               </span>
             </div>
@@ -1828,11 +1831,11 @@ export default function App() {
         </div>
 
         {/* Lock / Automatic Mode Segment */}
-        <div className="relative font-sans z-50 animate-none" ref={modusDropdownRef}>
+        <div className="relative font-sans z-50 animate-none flex-1 md:flex-initial min-w-0" ref={modusDropdownRef}>
           <button 
             id="stimm-modus-cycle-btn"
             onClick={() => setIsModusDropdownOpen(!isModusDropdownOpen)}
-            className={`flex items-center bg-neutral-900/50 border rounded-xl hover:bg-neutral-800/45 hover:border-white/20 active:scale-95 transition-all text-left shadow-lg cursor-pointer group px-3.5 py-1.5 gap-2.5 ${
+            className={`w-full flex items-center justify-center sm:justify-start bg-neutral-900/50 border rounded-xl hover:bg-neutral-800/45 hover:border-white/20 active:scale-95 transition-all text-left shadow-lg cursor-pointer group px-1 sm:px-3.5 py-1.5 gap-1 sm:gap-2.5 ${
               targetStringLock !== null ? "border-sky-500/50 text-sky-400" : "border-white/10 hover:border-white/20"
             }`}
           >
@@ -1848,11 +1851,11 @@ export default function App() {
                 <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
               )}
             </div>
-            <div className="flex flex-col leading-tight pr-1">
-              <span className="text-[8px] uppercase tracking-[0.25em] text-white/45 font-bold mb-0.5">
+            <div className="flex flex-col leading-tight pr-1 min-w-0">
+              <span className="text-[8px] uppercase tracking-[0.12em] sm:tracking-[0.25em] text-white/45 font-bold mb-0.5 truncate">
                 Stimm-Modus
               </span>
-              <span className="text-[11px] font-mono font-bold text-white/80 uppercase flex items-center gap-1">
+              <span className="text-[10px] sm:text-[11px] font-mono font-bold text-white/80 uppercase flex items-center gap-1 min-w-0 truncate">
                 {targetStringLock !== null ? (
                   (() => {
                     const lockedStr = tunedGuitarStrings.find(s => s.number === targetStringLock);
@@ -1983,42 +1986,66 @@ export default function App() {
           )}
         </div>
 
-        {/* Sunshine Theme Toggle button */}
+        {/* 3-Way Cycle Theme Selector (COMMIT: Introduced multi-option background theme cycle - Dark, Sunshine, Park to optimize visibility and comfort) */}
+        {/* 3-Way Cycle Theme Selector (COMMIT: Introduced multi-option background theme cycle - Dark, Sunshine, Park to optimize visibility and comfort) */}
         <button
-          id="sunshine-toggle-btn"
-          onClick={() => setIsSunshineMode(!isSunshineMode)}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border hover:scale-105 active:scale-95 transition-all shadow-lg cursor-pointer text-left shrink-0 z-50 ${
-            isSunshineMode 
-              ? "bg-amber-100/90 border-[#DBCAB1] text-amber-800 hover:bg-amber-200/90" 
+          id="theme-cycle-toggle-btn"
+          onClick={() => {
+            setThemeMode((prev) => {
+              if (prev === "dark") return "sunshine";
+              if (prev === "sunshine") return "park";
+              return "dark";
+            });
+          }}
+          className={`flex-1 md:flex-initial min-w-0 flex items-center justify-center sm:justify-start gap-1 sm:gap-2 px-1 sm:px-3 py-1.5 rounded-xl border hover:scale-105 active:scale-95 transition-all shadow-lg cursor-pointer text-left z-50 ${
+            themeMode === "sunshine" 
+              ? "bg-amber-100 border-[#DBCAB1] text-amber-800 hover:bg-amber-150" 
+              : themeMode === "park"
+              ? "bg-emerald-100 border-[#BCD6B9] text-emerald-850 hover:bg-emerald-150"
               : "bg-neutral-900/50 border-white/10 text-amber-400 hover:bg-neutral-800/40 hover:border-white/20"
           }`}
-          title={isSunshineMode ? "Zu kosmischem Dunkel wechseln" : "Zu Sunshine-Modus wechseln"}
+          title="Wechsle das Thema (Dunkel 🛸 -> Sonne ☀️ -> Park 🌲)"
         >
-          <div className={`w-7 h-7 rounded-lg flex items-center justify-center border transition-all ${
-            isSunshineMode 
+          <div className={`w-7 h-7 rounded-lg flex items-center justify-center border transition-all shrink-0 ${
+            themeMode === "sunshine" 
               ? "bg-amber-500 text-white border-amber-400" 
+              : themeMode === "park"
+              ? "bg-emerald-600 text-white border-emerald-500"
               : "bg-neutral-950/80 border-white/5 text-amber-400"
           }`}>
-            {isSunshineMode ? <Sun size={14} className="animate-[spin_20s_linear_infinite]" /> : <SunDim size={14} />}
+            {themeMode === "sunshine" && <Sun size={14} className="animate-[spin_20s_linear_infinite]" />}
+            {themeMode === "park" && <Trees size={14} />}
+            {themeMode === "dark" && <SunDim size={14} />}
           </div>
-          <div className="flex flex-col leading-tight pr-1">
-            <span className={`text-[8px] uppercase tracking-[0.25em] font-bold mb-0.5 ${isSunshineMode ? "text-amber-800/60" : "text-white/45"}`}>
-              Thema
+          <div className="flex flex-col leading-tight pr-1 min-w-0">
+            <span className={`text-[8px] uppercase tracking-[0.12em] sm:tracking-[0.25em] font-bold mb-0.5 truncate ${
+              themeMode === "sunshine" ? "text-amber-800/60" : themeMode === "park" ? "text-emerald-800/60" : "text-white/45"
+            }`}>
+              Design
             </span>
-            <span className={`text-[11px] font-mono font-bold uppercase ${isSunshineMode ? "text-amber-900" : "text-amber-400"}`}>
-              {isSunshineMode ? "Sonne ☀️" : "Dunkel 🛸"}
+            <span className={`text-[10px] sm:text-[11px] font-mono font-bold uppercase truncate ${
+              themeMode === "sunshine" ? "text-amber-950" : themeMode === "park" ? "text-emerald-950" : "text-amber-400"
+            }`}>
+              {themeMode === "sunshine" ? "Sonne" : themeMode === "park" ? "Park" : "Dunkel"}
             </span>
           </div>
         </button>
       </header>
 
-      {/* Dynamic theme style overrides for Sunshine Mode */}
-      {isSunshineMode && (
+      {/* Dynamic theme style overrides for Sunshine and Park Modes */}
+      {(themeMode === "sunshine" || themeMode === "park") && (
         <style>{`
+          /* === COMMON LIGHT MODE STYLE RESETS === */
           .sunshine-mode {
-            background: radial-gradient(circle at top, #FFFDF8 0%, #FAF6EE 60%, #F3ECDC 100%) !important;
-            color: #241D15 !important;
+            background: radial-gradient(circle at top, #FFFDF0 0%, #FAF1D6 60%, #EFE1B8 100%) !important;
+            color: #302205 !important;
           }
+          .park-mode {
+            background: radial-gradient(circle at top, #CDE7C9 0%, #B7DCB2 60%, #9BC696 100%) !important;
+            color: #0E2911 !important;
+          }
+
+          /* Headers, Containers and Buttons */
           .sunshine-mode header,
           .sunshine-mode #zeiger-dampen-row,
           .sunshine-mode #horizontal-full-neck-visualizer,
@@ -2028,129 +2055,210 @@ export default function App() {
           .sunshine-mode #kammerton-toggle-container,
           .sunshine-mode #stimm-modus-cycle-btn,
           .sunshine-mode #view-dropdown-trigger {
-            background-color: #FAF5EA !important;
-            border-color: #E2D5BE !important;
-            color: #241D15 !important;
-            box-shadow: 0 4px 15px rgba(139, 90, 43, 0.05), inset 0 1px 2px rgba(255, 255, 255, 0.6) !important;
+            background-color: #FAF2D8 !important;
+            border-color: #E6D4B2 !important;
+            color: #302205 !important;
+            box-shadow: 0 4px 15px rgba(139, 90, 43, 0.08) !important;
           }
+
+          .park-mode header,
+          .park-mode #zeiger-dampen-row,
+          .park-mode #horizontal-full-neck-visualizer,
+          .park-mode #chord-display-container,
+          .park-mode #theory-help-drawer,
+          .park-mode #mic-head-toggle-btn,
+          .park-mode #kammerton-toggle-container,
+          .park-mode #stimm-modus-cycle-btn,
+          .park-mode #view-dropdown-trigger {
+            background-color: #BBE1B6 !important;
+            border-color: #92B98E !important;
+            color: #0A260E !important;
+            box-shadow: 0 4px 15px rgba(9, 34, 13, 0.08) !important;
+          }
+
+          .sunshine-mode header button, .sunshine-mode header div,
+          .park-mode header button, .park-mode header div {
+            color: inherit !important;
+          }
+
+          /* Banner Colors */
           .sunshine-mode #manual-mode-banner {
             background-color: #FEF3C7 !important;
             color: #92400E !important;
             border-color: #FCD34D !important;
           }
-          .sunshine-mode header button,
-          .sunshine-mode header div {
-            color: #241D15 !important;
-          }
-          /* Button internals */
-          .sunshine-mode #mic-head-toggle-btn span.text-white\\/45,
-          .sunshine-mode #stimm-modus-cycle-btn span.text-white\\/45,
-          .sunshine-mode #kammerton-toggle-container span.text-white\\/45,
-          .sunshine-mode #zeiger-dampen-row span.text-white\\/50 {
-            color: #8C7C65 !important;
-          }
-          .sunshine-mode .text-white\\/40,
-          .sunshine-mode .text-white\\/45,
-          .sunshine-mode .text-white\\/50,
-          .sunshine-mode .text-white\\/35,
-          .sunshine-mode .text-stone-400 {
-            color: #83725C !important;
-          }
-          .sunshine-mode .text-white,
-          .sunshine-mode .text-white\\/90,
-          .sunshine-mode .text-white\\/80,
-          .sunshine-mode .text-white\\/60 {
-            color: #241D15 !important;
-          }
-          .sunshine-mode .border-white\\/10,
-          .sunshine-mode .border-white\\/5 {
-            border-color: #E3D7C0 !important;
-          }
-          /* Container boxes */
-          .sunshine-mode .bg-neutral-900\\/40,
-          .sunshine-mode .bg-neutral-900\\/50,
-          .sunshine-mode .bg-neutral-950\\/85,
-          .sunshine-mode .bg-[#141414],
-          .sunshine-mode .bg-black\\/20,
-          .sunshine-mode .bg-black\\/40 {
-            background-color: #FAF5EA !important;
-            color: #241D15 !important;
-            border-color: #E2D5BE !important;
-            box-shadow: 0 4px 15px rgba(139, 90, 43, 0.05) !important;
-          }
-          /* Inlaid black boxes */
-          .sunshine-mode .bg-neutral-950\\/80,
-          .sunshine-mode .bg-neutral-950\\/70,
-          .sunshine-mode .bg-neutral-950\\/45 {
-            background-color: #F3EAD5 !important;
-            color: #241D15 !important;
-            border-color: #DFD3BA !important;
-          }
-          .sunshine-mode #zeiger-dampen-row button:not(.bg-white) {
-            color: #5C4F3F !important;
-          }
-          .sunshine-mode #zeiger-dampen-row button.bg-white {
-            background-color: #D97706 !important; /* Premium amber element */
-            color: #FFFFFF !important;
-          }
-          .sunshine-mode p, .sunshine-mode span.text-stone-400, .sunshine-mode li {
-            color: #5C4F3F !important;
-          }
-          .sunshine-mode h1, 
-          .sunshine-mode h2, 
-          .sunshine-mode h3, 
-          .sunshine-mode h4, 
-          .sunshine-mode h5, 
-          .sunshine-mode h6 {
-            color: #78350F !important; /* Deep sunny amber headings */
-          }
-          .sunshine-mode svg text {
-            fill: #241D15 !important;
-          }
-          .sunshine-mode #dial-tuner-text {
-            color: #241D15 !important;
-          }
-          .sunshine-mode #shared-horizontal-tuning-bar {
-            background-color: #F8F3E5 !important;
-            border-color: #E2D5BE !important;
-          }
-          /* Tone wheel background */
-          .sunshine-mode #renderToneWheel-bg {
-            stroke: rgba(210, 190, 165, 0.25) !important;
-          }
-          /* Dropdown panel backgrounds */
-          .sunshine-mode .absolute.right-0 {
-            background-color: #FAF6ED !important;
-            border-color: #DECDB3 !important;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important;
-          }
-          /* Scrollbars inside dashboard */
-          .sunshine-mode *::-webkit-scrollbar-track {
-            background: #F3EAD5 !important;
-          }
-          .sunshine-mode *::-webkit-scrollbar-thumb {
-            background: #DECDB3 !important;
-            border-radius: 4px;
-          }
-          /* Subtle correction for guitar neck visualizer */
-          .sunshine-mode #horizontal-full-neck-visualizer {
-            background-color: #FAF5EA !important;
-            border-color: #E2D5BE !important;
-          }
-          .sunshine-mode .bg-green-950\\/20 {
+          .park-mode #manual-mode-banner {
             background-color: #D1FAE5 !important;
             color: #065F46 !important;
-            border-color: #A7F3D0 !important;
+            border-[#A7F3D0] !important;
           }
-          .sunshine-mode .text-emerald-400, .sunshine-mode .text-green-400 {
-            color: #059669 !important;
+
+          /* Details and Text Muting */
+          .sunshine-mode .text-white\\/40, .sunshine-mode .text-white\\/45,
+          .sunshine-mode .text-white\\/50, .sunshine-mode .text-white\\/35,
+          .sunshine-mode .text-stone-400 {
+            color: #7C694E !important;
           }
-          .sunshine-mode .border-green-500\\/30 {
-            border-color: #10B981 !important;
+          .park-mode .text-white\\/40, .park-mode .text-white\\/45,
+          .park-mode .text-white\\/50, .park-mode .text-white\\/35,
+          .park-mode .text-stone-400 {
+            color: #3C5A40 !important;
           }
-          /* Low capacity overlay reduction */
-          .sunshine-mode .opacity-80 {
-            opacity: 0.52 !important;
+
+          .sunshine-mode .text-white, .sunshine-mode .text-white\\/90,
+          .sunshine-mode .text-white\\/80, .sunshine-mode .text-white\\/60 {
+            color: #302205 !important;
+          }
+          .park-mode .text-white, .park-mode .text-white\\/90,
+          .park-mode .text-white\\/80, .park-mode .text-white\\/60 {
+            color: #061A08 !important;
+          }
+
+          /* Border styling */
+          .sunshine-mode .border-white\\/10, .sunshine-mode .border-white\\/5,
+          .sunshine-mode .border-white\\/15, .sunshine-mode .border-[#1E1E1E],
+          .sunshine-mode .border-neutral-800 {
+            border-color: #EADCB9 !important;
+          }
+          .park-mode .border-white\\/10, .park-mode .border-white\\/5,
+          .park-mode .border-white\\/15, .park-mode .border-[#1E1E1E],
+          .park-mode .border-neutral-800 {
+            border-color: #9EC09A !important;
+          }
+
+          /* Nested Container backgrounds */
+          .sunshine-mode .bg-neutral-900\\/40, .sunshine-mode .bg-neutral-900\\/50,
+          .sunshine-mode .bg-neutral-950\\/85, .sunshine-mode .bg-[#141414],
+          .sunshine-mode .bg-black\\/20, .sunshine-mode .bg-black\\/40 {
+            background-color: #F8EFCF !important;
+            color: #302205 !important;
+            border-color: #E6D8AD !important;
+          }
+          .park-mode .bg-neutral-900\\/40, .park-mode .bg-neutral-900\\/50,
+          .park-mode .bg-neutral-950\\/85, .park-mode .bg-[#141414],
+          .park-mode .bg-black\\/20, .park-mode .bg-black\\/40 {
+            background-color: #B2D8AD !important;
+            color: #061A08 !important;
+            border-color: #8CBA86 !important;
+          }
+
+          /* Inlaid black boxes */
+          .sunshine-mode .bg-neutral-950\\/80, .sunshine-mode .bg-neutral-950\\/70, .sunshine-mode .bg-neutral-950\\/45 {
+            background-color: #EDDEB6 !important;
+            color: #302205 !important;
+            border-color: #DEC89F !important;
+          }
+          .park-mode .bg-neutral-950\\/80, .park-mode .bg-neutral-950\\/70, .park-mode .bg-neutral-950\\/45 {
+            background-color: #A4CC9E !important;
+            color: #061A08 !important;
+            border-color: #82AF7C !important;
+          }
+
+          /* Dampen row active button */
+          .sunshine-mode #zeiger-dampen-row button:not(.bg-white) {
+            color: #7C694E !important;
+          }
+          .sunshine-mode #zeiger-dampen-row button.bg-white {
+            background-color: #D97706 !important;
+            color: #FFFFFF !important;
+          }
+
+          .park-mode #zeiger-dampen-row button:not(.bg-white) {
+            color: #3C5A40 !important;
+          }
+          .park-mode #zeiger-dampen-row button.bg-white {
+            background-color: #166534 !important;
+            color: #FFFFFF !important;
+          }
+
+          /* Human texts */
+          .sunshine-mode p, .sunshine-mode span.text-stone-400, .sunshine-mode li {
+            color: #54442A !important;
+          }
+          .park-mode p, .park-mode span.text-stone-400, .park-mode li {
+            color: #123315 !important;
+          }
+
+          /* Headings & Accent Labels */
+          .sunshine-mode h1, .sunshine-mode h2, .sunshine-mode h3, 
+          .sunshine-mode h4, .sunshine-mode h5, .sunshine-mode h6 {
+            color: #92400E !important;
+          }
+          .park-mode h1, .park-mode h2, .park-mode h3, 
+          .park-mode h4, .park-mode h5, .park-mode h6 {
+            color: #14532D !important;
+          }
+
+          /* Tune board svg elements */
+          .sunshine-mode svg text, .park-mode svg text {
+            fill: #302205 !important;
+          }
+          .sunshine-mode #dial-tuner-text, .park-mode #dial-tuner-text {
+            color: inherit !important;
+          }
+          .sunshine-mode #shared-horizontal-tuning-bar {
+            background-color: #FAF2D8 !important;
+            border-color: #E6D4B2 !important;
+          }
+          .park-mode #shared-horizontal-tuning-bar {
+            background-color: #BBE1B6 !important;
+            border-color: #92B98E !important;
+          }
+
+          /* Tone wheel adjustments */
+          .sunshine-mode #renderToneWheel-bg {
+            stroke: rgba(146, 64, 14, 0.15) !important;
+          }
+          .park-mode #renderToneWheel-bg {
+            stroke: rgba(22, 101, 52, 0.15) !important;
+          }
+
+          /* Dropdown panel backgrounds */
+          .sunshine-mode .absolute.right-0 {
+            background-color: #FAF5DC !important;
+            border-color: #E6D3A0 !important;
+            box-shadow: 0 10px 30px rgba(139, 90, 43, 0.15) !important;
+          }
+          .park-mode .absolute.right-0 {
+            background-color: #BFE3BA !important;
+            border-color: #95BD90 !important;
+            box-shadow: 0 10px 30px rgba(9, 34, 13, 0.15) !important;
+          }
+
+          /* Scrollbar Custom Styling for Mobile Header Nav */
+          header::-webkit-scrollbar {
+            height: 3px;
+          }
+          header::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
+          }
+          header::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.15);
+            border-radius: 99px;
+          }
+          .sunshine-mode *::-webkit-scrollbar-track {
+            background: #EDDEB6 !important;
+          }
+          .sunshine-mode *::-webkit-scrollbar-thumb {
+            background: #DEC89F !important;
+          }
+          .park-mode *::-webkit-scrollbar-track {
+            background: #A4CC9E !important;
+          }
+          .park-mode *::-webkit-scrollbar-thumb {
+            background: #82AF7C !important;
+          }
+          
+          /* Visual cue elements */
+          .sunshine-mode .bg-green-950\\/20 {
+            background-color: #FEF3C7 !important;
+            color: #D97706 !important;
+            border-color: #FCD34D !important;
+          }
+          .park-mode .bg-green-950\\/20 {
+            background-color: #A7F3D0 !important;
+            color: #047857 !important;
+            border-color: #34D399 !important;
           }
         `}</style>
       )}
@@ -3142,21 +3250,88 @@ export default function App() {
                   {filteredChords.map((chord) => {
                     const isCurrent = selectedChord && selectedChord.name === chord.name;
                     return (
-                      <button
-                        id={`chord-btn-${chord.name.toLowerCase().replace(" ", "-").replace("#", "sharp")}`}
-                        key={chord.name}
-                        onClick={() => {
-                          setSelectedChord(chord);
-                          playChord(chord); // Automatically strum on select for great UX
-                        }}
-                        className={`text-[11px] font-bold uppercase py-1.5 rounded-lg border transition-all text-center cursor-pointer select-none ${
-                          isCurrent
-                            ? "bg-amber-600/20 border-amber-500 text-amber-400 font-black shadow-inner shadow-amber-950/40"
-                            : "border-white/5 bg-white/5 text-white/60 hover:text-white hover:bg-white/10"
-                        }`}
-                      >
-                        {chord.name}
-                      </button>
+                      <div key={chord.name} className="contents">
+                        <button
+                          id={`chord-btn-${chord.name.toLowerCase().replace(" ", "-").replace("#", "sharp")}`}
+                          onClick={() => {
+                            if (isCurrent) {
+                              setSelectedChord(null); // click again to collapse/toggle if selected!
+                            } else {
+                              setSelectedChord(chord);
+                              playChord(chord); // Automatically strum on select for great UX
+                            }
+                          }}
+                          className={`text-[11px] font-bold uppercase py-1.5 rounded-lg border transition-all text-center cursor-pointer select-none ${
+                            isCurrent
+                              ? "bg-amber-600/20 border-amber-500 text-amber-400 font-black shadow-inner shadow-amber-950/40"
+                              : "border-white/5 bg-white/5 text-white/60 hover:text-white hover:bg-white/10"
+                          }`}
+                        >
+                          {chord.name}
+                        </button>
+                        {isCurrent && (
+                          <div className="col-span-2 sm:col-span-4 md:col-span-full bg-neutral-950/45 border border-amber-500/20 rounded-xl p-3 sm:p-4 flex flex-col md:flex-row items-center justify-between gap-4 w-full my-2 animate-fade-in relative z-10 shadow-lg shadow-black/10">
+                            <div className="flex-1 flex flex-col gap-2.5 w-full text-left">
+                              <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                                <span className="text-[11px] font-mono text-amber-400 font-black uppercase tracking-wider flex items-center gap-1.5">
+                                  <Zap size={11} className="text-amber-500 animate-bounce" />
+                                  <span>Akkord-Profil: {chord.name}</span>
+                                </span>
+                                <span className="text-[9px] font-mono text-white/30 truncate hidden sm:inline">
+                                  Interaktives Diagramm direkt darunter ⚡
+                                </span>
+                              </div>
+                              
+                              <div className="flex flex-col gap-1.5 text-[10px] font-mono">
+                                <div className="flex flex-wrap items-center gap-2 text-white/35">
+                                  <span className="font-bold text-white/45">Begleitende Saitenlegung:</span>
+                                  <span className="bg-white/5 px-2 py-0.5 rounded text-white/60 border border-white/10">
+                                    {chord.multiNotes ? (
+                                      chord.multiNotes.map((m) => {
+                                        const stringLabels = ["E/6", "A/5", "D/4", "G/3", "H/2", "E/1"];
+                                        return `${stringLabels[m.stringIdx]}:${m.frets.join(",")}`;
+                                      }).join(" | ")
+                                    ) : (
+                                      chord.frets.map((f, i) => {
+                                        const stringLabels = ["E/6", "A/5", "D/4", "G/3", "H/2", "E/1"];
+                                        return `${stringLabels[i]}:${f}`;
+                                      }).join(" | ")
+                                    )}
+                                  </span>
+                                </div>
+                                
+                                {chord.rootStringIdx !== undefined && (
+                                  <div className="text-amber-400 font-extrabold bg-amber-400/10 px-2 py-1 rounded border border-amber-400/20 w-fit flex items-center gap-1.5 mt-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block drop-shadow-[0_0_4px_#f59e0b]" />
+                                    <span>Grundton auf Saite {6 - chord.rootStringIdx}: Bund {chord.frets[chord.rootStringIdx]}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-2 mt-2">
+                                <button
+                                  onClick={() => playChord(chord)}
+                                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-mono text-[10px] rounded-lg cursor-pointer flex items-center gap-1.5 uppercase font-bold transition-all shadow-md shadow-amber-900/20 hover:scale-102 active:scale-98"
+                                >
+                                  <Volume2 size={11} />
+                                  <span>Anschlagen 🔊</span>
+                                </button>
+                                <button
+                                  onClick={() => setSelectedChord(null)}
+                                  className="px-2.5 py-1.5 bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-white/50 hover:text-white rounded-lg text-[10px] font-bold uppercase transition-all"
+                                >
+                                  Schließen ✕
+                                </button>
+                              </div>
+                            </div>
+                            
+                            {/* Embedded Visualizer */}
+                            <div className="shrink-0 flex items-center justify-center bg-black/30 p-2 rounded-xl border border-white/5 scale-95 origin-center">
+                              {renderFretboardGraphic()}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -3196,8 +3371,12 @@ export default function App() {
             </div>
           </div>
 
-          {/* SVG Fretboard Chord Diagram */}
-          {chordFilter !== "pentatonic" && renderFretboardGraphic()}
+          {/* SVG Fretboard Chord Diagram (Only visible at side in CAGED mode, or if no chord is selected inside standard libraries, avoiding duplicate listings) */}
+          {chordFilter !== "pentatonic" && (chordFilter === "caged" || !selectedChord) && (
+            <div className="hidden lg:flex items-center justify-center border-l border-white/5 pl-6 shrink-0">
+              {renderFretboardGraphic()}
+            </div>
+          )}
         </div>
 
         {/* ----------------- GORGEOUS HORIZONTAL FULL NECK PENTATONIC VISUALIZER ----------------- */}
