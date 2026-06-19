@@ -20,7 +20,7 @@
  */
 
 import { useEffect, useRef, useState, CSSProperties } from "react";
-import { Mic, MicOff, Volume2, Info, Settings, Zap, CheckCircle2, RefreshCw, Target, Radio, Play, Pause, ChevronDown, X, RotateCw, Sun, SunDim, Trees, Timer, BookOpen, Compass } from "lucide-react";
+import { Mic, MicOff, Volume2, Info, Settings, Zap, CheckCircle2, RefreshCw, Target, Radio, Play, Pause, ChevronDown, X, RotateCw, Sun, SunDim, Trees, Timer, BookOpen, Compass, Search } from "lucide-react";
 import { STANDARD_GUITAR_STRINGS, UKULELE_STRINGS, TWELVE_STRING_GUITAR_STRINGS, GuitarString } from "./types";
 import { detectGuitarPitch, findClosestGuitarString, findClosestChromaticNote } from "./utils/audioProcessor";
 
@@ -456,6 +456,7 @@ export default function App() {
   const [fretboardRotation, setFretboardRotation] = useState<number>(0);
   const [selectedChord, setSelectedChord] = useState<Chord | null>(COMMON_CHORDS[0]);
   const [chordFilter, setChordFilter] = useState<"all" | "basis" | "7th" | "barre" | "sus" | "dim" | "pentatonic" | "caged">("all");
+  const [chordSearchQuery, setChordSearchQuery] = useState<string>("");
 
   const [pentatonicKey, setPentatonicKey] = useState<string>("A");
   const [pentatonicType, setPentatonicType] = useState<"minor" | "major">("minor");
@@ -511,9 +512,22 @@ export default function App() {
   const metronomeTimerRef = useRef<any>(null);
   const metronomeBeatRef = useRef<number>(0);
   const [tapTimes, setTapTimes] = useState<number[]>([]);
+  const [isTapFlashing, setIsTapFlashing] = useState<boolean>(false);
 
-  // Web Audio Click Synthesis for Practice Metronome
-  const playMetronomeClick = (isFirstBeat: boolean) => {
+  // 4 Takt sequencer customizable sounds state
+  const [beatSounds, setBeatSounds] = useState<string[]>([
+    "djembe_bass",
+    "djembe_slap",
+    "djembe_slap",
+    "classic"
+  ]);
+  const beatSoundsRef = useRef<string[]>([]);
+  useEffect(() => {
+    beatSoundsRef.current = beatSounds;
+  }, [beatSounds]);
+
+  // High quality djembe & drum Web Audio sound synthesizers
+  const playBeatSoundByName = (soundType: string) => {
     try {
       let audioCtx = audioCtxRef.current;
       if (!audioCtx || audioCtx.state === "closed") {
@@ -525,21 +539,310 @@ export default function App() {
         audioCtx!.resume();
       }
 
-      const osc = audioCtx!.createOscillator();
-      const gainNode = audioCtx!.createGain();
+      const time = audioCtx.currentTime;
 
-      osc.type = "sine";
-      // High-pitched woodblock click for accent beat, mid-pitched for non-accent
-      osc.frequency.setValueAtTime(isFirstBeat ? 1000 : 600, audioCtx!.currentTime);
+      switch (soundType) {
+        case "classic_accent": {
+          const osc = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(1100, time);
+          gainNode.gain.setValueAtTime(0, time);
+          gainNode.gain.linearRampToValueAtTime(0.18, time + 0.003);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.06);
+          osc.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          osc.start(time);
+          osc.stop(time + 0.08);
+          break;
+        }
+        case "classic": {
+          const osc = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(650, time);
+          gainNode.gain.setValueAtTime(0, time);
+          gainNode.gain.linearRampToValueAtTime(0.12, time + 0.003);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.06);
+          osc.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          osc.start(time);
+          osc.stop(time + 0.08);
+          break;
+        }
+        case "djembe_bass": {
+          const osc = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(140, time);
+          osc.frequency.exponentialRampToValueAtTime(75, time + 0.12);
+          gainNode.gain.setValueAtTime(0, time);
+          gainNode.gain.linearRampToValueAtTime(0.4, time + 0.005);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.35);
+          osc.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          osc.start(time);
+          osc.stop(time + 0.4);
+          break;
+        }
+        case "djembe_tone": {
+          const osc = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(250, time);
+          osc.frequency.exponentialRampToValueAtTime(150, time + 0.14);
+          gainNode.gain.setValueAtTime(0, time);
+          gainNode.gain.linearRampToValueAtTime(0.32, time + 0.005);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.22);
+          osc.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          osc.start(time);
+          osc.stop(time + 0.25);
+          break;
+        }
+        case "djembe_slap": {
+          const osc = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(380, time);
+          osc.frequency.exponentialRampToValueAtTime(180, time + 0.08);
+          gainNode.gain.setValueAtTime(0, time);
+          gainNode.gain.linearRampToValueAtTime(0.28, time + 0.004);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+          osc.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          osc.start(time);
+          osc.stop(time + 0.2);
 
-      gainNode.gain.setValueAtTime(0, audioCtx!.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.12, audioCtx!.currentTime + 0.005);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx!.currentTime + 0.08);
+          // custom physical djembe high splash noise burst
+          try {
+            const noiseDur = 0.035;
+            const bufSize = audioCtx.sampleRate * noiseDur;
+            const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) d[i] = (Math.random() * 2 - 1) * 0.12;
+            const src = audioCtx.createBufferSource();
+            src.buffer = buf;
+            const f = audioCtx.createBiquadFilter();
+            f.type = "bandpass";
+            f.frequency.setValueAtTime(1300, time);
+            const ng = audioCtx.createGain();
+            ng.gain.setValueAtTime(0.1, time);
+            ng.gain.exponentialRampToValueAtTime(0.001, time + noiseDur);
+            src.connect(f);
+            f.connect(ng);
+            ng.connect(audioCtx.destination);
+            src.start(time);
+          } catch (e) {}
+          break;
+        }
+        case "djembe_flam": {
+          // Double slap hit: a softer one followed by louder accented one
+          const playSlapGen = (delay: number, volume: number) => {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.type = "triangle";
+            osc.frequency.setValueAtTime(360, time + delay);
+            osc.frequency.exponentialRampToValueAtTime(185, time + delay + 0.07);
+            gainNode.gain.setValueAtTime(0, time + delay);
+            gainNode.gain.linearRampToValueAtTime(volume, time + delay + 0.004);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, time + delay + 0.11);
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            osc.start(time + delay);
+            osc.stop(time + delay + 0.14);
 
-      osc.connect(gainNode);
-      gainNode.connect(audioCtx!.destination);
-      osc.start();
-      osc.stop(audioCtx!.currentTime + 0.1);
+            try {
+              const noiseDur = 0.028;
+              const bufSize = audioCtx.sampleRate * noiseDur;
+              const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+              const d = buf.getChannelData(0);
+              for (let i = 0; i < bufSize; i++) d[i] = (Math.random() * 2 - 1) * 0.09;
+              const src = audioCtx.createBufferSource();
+              src.buffer = buf;
+              const f = audioCtx.createBiquadFilter();
+              f.type = "bandpass";
+              f.frequency.setValueAtTime(1350, time + delay);
+              const ng = audioCtx.createGain();
+              ng.gain.setValueAtTime(0.07 * (volume / 0.28), time + delay);
+              ng.gain.exponentialRampToValueAtTime(0.001, time + delay + noiseDur);
+              src.connect(f);
+              f.connect(ng);
+              ng.connect(audioCtx.destination);
+              src.start(time + delay);
+              src.stop(time + delay + noiseDur + 0.02);
+            } catch (e) {}
+          };
+          playSlapGen(0, 0.12);
+          playSlapGen(0.038, 0.26);
+          break;
+        }
+        case "drum_kick": {
+          const osc = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(155, time);
+          osc.frequency.exponentialRampToValueAtTime(48, time + 0.11);
+          gainNode.gain.setValueAtTime(0, time);
+          gainNode.gain.linearRampToValueAtTime(0.45, time + 0.003);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.23);
+          osc.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          osc.start(time);
+          osc.stop(time + 0.26);
+          break;
+        }
+        case "drum_snare": {
+          const osc = audioCtx.createOscillator();
+          const oscGain = audioCtx.createGain();
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(180, time);
+          oscGain.gain.setValueAtTime(0.15, time);
+          oscGain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+          osc.connect(oscGain);
+          oscGain.connect(audioCtx.destination);
+          osc.start(time);
+          osc.stop(time + 0.12);
+
+          try {
+            const noiseDur = 0.18;
+            const bufSize = audioCtx.sampleRate * noiseDur;
+            const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+            const src = audioCtx.createBufferSource();
+            src.buffer = buf;
+            const f = audioCtx.createBiquadFilter();
+            f.type = "highpass";
+            f.frequency.setValueAtTime(1100, time);
+            const ng = audioCtx.createGain();
+            ng.gain.setValueAtTime(0, time);
+            ng.gain.linearRampToValueAtTime(0.2, time + 0.005);
+            ng.gain.exponentialRampToValueAtTime(0.001, time + noiseDur);
+            src.connect(f);
+            f.connect(ng);
+            ng.connect(audioCtx.destination);
+            src.start(time);
+            src.stop(time + noiseDur + 0.05);
+          } catch (e) {}
+          break;
+        }
+        case "rimshot": {
+          const osc = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(950, time);
+          osc.frequency.exponentialRampToValueAtTime(450, time + 0.035);
+          gainNode.gain.setValueAtTime(0, time);
+          gainNode.gain.linearRampToValueAtTime(0.25, time + 0.002);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.045);
+          osc.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          osc.start(time);
+          osc.stop(time + 0.05);
+
+          try {
+            const noiseDur = 0.025;
+            const bufSize = audioCtx.sampleRate * noiseDur;
+            const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+            const src = audioCtx.createBufferSource();
+            src.buffer = buf;
+            const f = audioCtx.createBiquadFilter();
+            f.type = "bandpass";
+            f.frequency.setValueAtTime(3500, time);
+            const ng = audioCtx.createGain();
+            ng.gain.setValueAtTime(0.12, time);
+            ng.gain.exponentialRampToValueAtTime(0.001, time + noiseDur);
+            src.connect(f);
+            f.connect(ng);
+            ng.connect(audioCtx.destination);
+            src.start(time);
+            src.stop(time + noiseDur + 0.01);
+          } catch (e) {}
+          break;
+        }
+        case "hihat_closed": {
+          try {
+            const noiseDur = 0.025;
+            const bufSize = audioCtx.sampleRate * noiseDur;
+            const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+            const src = audioCtx.createBufferSource();
+            src.buffer = buf;
+            const f = audioCtx.createBiquadFilter();
+            f.type = "highpass";
+            f.frequency.setValueAtTime(7500, time);
+            const ng = audioCtx.createGain();
+            ng.gain.setValueAtTime(0.14, time);
+            ng.gain.exponentialRampToValueAtTime(0.001, time + noiseDur);
+            src.connect(f);
+            f.connect(ng);
+            ng.connect(audioCtx.destination);
+            src.start(time);
+            src.stop(time + noiseDur + 0.01);
+          } catch (e) {}
+          break;
+        }
+        case "hihat_open": {
+          try {
+            const noiseDur = 0.32;
+            const bufSize = audioCtx.sampleRate * noiseDur;
+            const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+            const src = audioCtx.createBufferSource();
+            src.buffer = buf;
+            const f = audioCtx.createBiquadFilter();
+            f.type = "highpass";
+            f.frequency.setValueAtTime(6500, time);
+            const ng = audioCtx.createGain();
+            ng.gain.setValueAtTime(0.12, time);
+            ng.gain.exponentialRampToValueAtTime(0.001, time + noiseDur);
+            src.connect(f);
+            f.connect(ng);
+            ng.connect(audioCtx.destination);
+            src.start(time);
+            src.stop(time + noiseDur + 0.02);
+          } catch (e) {}
+          break;
+        }
+        case "hand_clap": {
+          const playClapBurst = (delay: number, vol: number) => {
+            if (!audioCtx) return;
+            try {
+              const noiseDur = 0.06;
+              const bufSize = audioCtx.sampleRate * noiseDur;
+              const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+              const d = buf.getChannelData(0);
+              for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+              const src = audioCtx.createBufferSource();
+              src.buffer = buf;
+              const f = audioCtx.createBiquadFilter();
+              f.type = "bandpass";
+              f.frequency.setValueAtTime(1050, time + delay);
+              const ng = audioCtx.createGain();
+              ng.gain.setValueAtTime(vol * 0.16, time + delay);
+              ng.gain.exponentialRampToValueAtTime(0.001, time + delay + noiseDur);
+              src.connect(f);
+              f.connect(ng);
+              ng.connect(audioCtx.destination);
+              src.start(time + delay);
+              src.stop(time + delay + noiseDur + 0.02);
+            } catch (e) {}
+          };
+          playClapBurst(0, 0.7);
+          playClapBurst(0.012, 0.85);
+          playClapBurst(0.024, 1.0);
+          break;
+        }
+        case "mute":
+        default:
+          break;
+      }
     } catch (err) {
       console.warn("Metronome sound failed:", err);
     }
@@ -554,12 +857,16 @@ export default function App() {
       const intervalMs = (60 / metronomeBpm) * 1000;
       
       // Initial tick
-      playMetronomeClick(true);
+      const firstSound = beatSoundsRef.current[0] || "classic_accent";
+      playBeatSoundByName(firstSound);
       
       metronomeTimerRef.current = setInterval(() => {
-        metronomeBeatRef.current = (metronomeBeatRef.current + 1) % 4;
-        setMetronomeBeat(metronomeBeatRef.current);
-        playMetronomeClick(metronomeBeatRef.current === 0);
+        const totalBeats = beatSoundsRef.current.length || 4;
+        const nextBeat = (metronomeBeatRef.current + 1) % totalBeats;
+        metronomeBeatRef.current = nextBeat;
+        setMetronomeBeat(nextBeat);
+        const soundType = beatSoundsRef.current[nextBeat] || "classic";
+        playBeatSoundByName(soundType);
       }, intervalMs);
     } else {
       if (metronomeTimerRef.current) {
@@ -571,11 +878,23 @@ export default function App() {
         clearInterval(metronomeTimerRef.current);
       }
     };
-  }, [isMetronomePlaying, metronomeBpm]);
+  }, [isMetronomePlaying, metronomeBpm, beatSounds]);
 
   const handleTapTempo = () => {
+    // 1. Play high-quality classic accent click as auditory click on each tap
+    try {
+      playBeatSoundByName("classic_accent");
+    } catch (e) {}
+
+    // 2. Set visual flashing trigger state and cancel old timeouts
+    setIsTapFlashing(true);
+    const flashTimeout = setTimeout(() => {
+      setIsTapFlashing(false);
+    }, 110);
+
     const now = performance.now();
-    const newTaps = [...tapTimes, now].filter(t => now - t < 2500); // keep within 2.5s
+    // Keep taps within 2.0 seconds (any pause longer reset-starts the tapping counts)
+    const newTaps = [...tapTimes, now].filter(t => now - t < 2000);
     setTapTimes(newTaps);
 
     if (newTaps.length >= 2) {
@@ -590,6 +909,29 @@ export default function App() {
       }
     }
   };
+
+  // Global keyboard shortcuts for TAP tempo ("T" and "Spacebar") when in Practice tab
+  useEffect(() => {
+    const handleGlobalKeysForTap = (e: KeyboardEvent) => {
+      if (activeFooterTab !== "practice") return;
+
+      // Ensure we do not capture keys while user is editing input boxes, volume sliders or select dropdown elements
+      const targetTag = (e.target as HTMLElement)?.tagName?.toUpperCase();
+      if (targetTag === "INPUT" || targetTag === "SELECT" || targetTag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) {
+        return;
+      }
+
+      if (e.key.toLowerCase() === "t" || e.code === "Space") {
+        e.preventDefault(); // Stop browser page scrolling on Spacebar tap
+        handleTapTempo();
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeysForTap, { passive: false });
+    return () => {
+      window.removeEventListener("keydown", handleGlobalKeysForTap);
+    };
+  }, [activeFooterTab, tapTimes]);
 
   // Smoothing filters state trackers
   const lastFreqRef = useRef<number>(-1);
@@ -640,6 +982,7 @@ export default function App() {
 
   // Audio synthesis reference trackers
   const activeOscillatorRef = useRef<OscillatorNode | null>(null);
+  const activeOscillatorsRef = useRef<OscillatorNode[]>([]);
   const activeGainRef = useRef<GainNode | null>(null);
   const playTimeoutRef = useRef<number | null>(null);
   const [playingStringNum, setPlayingStringNum] = useState<number | null>(null);
@@ -752,20 +1095,133 @@ export default function App() {
         activeGainRef.current.gain.cancelScheduledValues(now);
         activeGainRef.current.gain.setValueAtTime(activeGainRef.current.gain.value, now);
         // Exponential ramp to 0 to avoid audio clicks/pops
-        activeGainRef.current.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+        activeGainRef.current.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
         
         const osc = activeOscillatorRef.current;
+        const oList = [...activeOscillatorsRef.current];
         setTimeout(() => {
           try {
             osc?.stop();
             osc?.disconnect();
           } catch (e) {}
-        }, 120);
+          oList.forEach((o) => {
+            try {
+              o.stop();
+              o.disconnect();
+            } catch (e) {}
+          });
+        }, 140);
       } catch (e) {}
       activeOscillatorRef.current = null;
+      activeOscillatorsRef.current = [];
       activeGainRef.current = null;
     }
     setPlayingStringNum(null);
+  };
+
+  const playGuitarPluckSound = (
+    audioCtx: AudioContext,
+    freq: number,
+    playTime: number,
+    duration: number = 2.5,
+    customVolume: number = 0.16,
+    isSustained: boolean = false
+  ) => {
+    const trackedOscillators: OscillatorNode[] = [];
+    const masterGain = audioCtx.createGain();
+
+    // 1. Pick attack/pluck transient using a short noise burst (for non-sustained pluck)
+    if (!isSustained) {
+      try {
+        const noiseDuration = 0.025;
+        const bufferSize = audioCtx.sampleRate * noiseDuration;
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * 0.35;
+        }
+        const noiseNode = audioCtx.createBufferSource();
+        noiseNode.buffer = noiseBuffer;
+
+        const noiseFilter = audioCtx.createBiquadFilter();
+        noiseFilter.type = "bandpass";
+        noiseFilter.frequency.setValueAtTime(1000, playTime);
+        noiseFilter.Q.setValueAtTime(2.0, playTime);
+
+        const noiseGain = audioCtx.createGain();
+        noiseGain.gain.setValueAtTime(0, audioCtx.currentTime);
+        noiseGain.gain.setValueAtTime(0, playTime);
+        noiseGain.gain.linearRampToValueAtTime(customVolume * 0.35, playTime + 0.002);
+        noiseGain.gain.exponentialRampToValueAtTime(0.0001, playTime + noiseDuration);
+
+        noiseNode.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(audioCtx.destination);
+
+        noiseNode.start(playTime);
+        noiseNode.stop(playTime + noiseDuration + 0.02);
+      } catch (e) {}
+    }
+
+    // 2. Harmonic/Overtone structure of an acoustic string pluck
+    const harmonics = [
+      { multiplier: 1, type: "triangle" as OscillatorType, relLevel: 1.0,  decayScale: 1.0 },   // Fundamental
+      { multiplier: 2, type: "triangle" as OscillatorType, relLevel: 0.60, decayScale: 0.65 },  // 2nd harmonic (octave)
+      { multiplier: 3, type: "sine" as OscillatorType,     relLevel: 0.32, decayScale: 0.48 },  // 3rd harmonic
+      { multiplier: 4, type: "sine" as OscillatorType,     relLevel: 0.18, decayScale: 0.35 },  // 4th harmonic
+      { multiplier: 5, type: "sine" as OscillatorType,     relLevel: 0.10, decayScale: 0.22 },  // 5th harmonic
+      { multiplier: 6, type: "sine" as OscillatorType,     relLevel: 0.05, decayScale: 0.15 }   // 6th harmonic
+    ];
+
+    masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+    masterGain.gain.setValueAtTime(0, playTime);
+    masterGain.gain.linearRampToValueAtTime(1.0, playTime + 0.015);
+
+    harmonics.forEach((h) => {
+      const harmonicFreq = freq * h.multiplier;
+      if (harmonicFreq > 21000) return;
+
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      osc.type = h.type;
+      osc.frequency.setValueAtTime(harmonicFreq, playTime);
+
+      if (h.multiplier === 1 && !isSustained) {
+        osc.frequency.setValueAtTime(freq * 1.006, playTime);
+        osc.frequency.exponentialRampToValueAtTime(freq, playTime + 0.08);
+      }
+
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(harmonicFreq * 2.5, playTime);
+      if (!isSustained) {
+        filter.frequency.exponentialRampToValueAtTime(harmonicFreq * 0.7, playTime + duration * h.decayScale);
+      }
+
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0, playTime);
+      gainNode.gain.linearRampToValueAtTime(customVolume * h.relLevel, playTime + 0.012);
+      
+      if (!isSustained) {
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, playTime + duration * h.decayScale);
+      }
+
+      osc.connect(filter);
+      filter.connect(gainNode);
+      gainNode.connect(masterGain);
+
+      osc.start(playTime);
+      if (!isSustained) {
+        osc.stop(playTime + duration * h.decayScale + 0.05);
+      } else {
+        trackedOscillators.push(osc);
+      }
+    });
+
+    masterGain.connect(audioCtx.destination);
+    
+    return { masterGain, trackedOscillators };
   };
 
   const playReferencePitch = (freq: number, stringNum: number) => {
@@ -790,31 +1246,17 @@ export default function App() {
         audioCtx.resume();
       }
 
-      const osc = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
+      const { masterGain, trackedOscillators } = playGuitarPluckSound(
+        audioCtx,
+        freq,
+        audioCtx.currentTime,
+        3.2,
+        0.18,
+        isContinuousReference
+      );
 
-      // Triangle waves yield a warm, plucky wooden acoustic reference tone
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-
-      // Continuous drone check versus simple plucky fade
-      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-      if (isContinuousReference) {
-        // Sustaining drone note
-        gainNode.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 0.08);
-      } else {
-        // Create a nice pluck-and-fade envelope
-        gainNode.gain.linearRampToValueAtTime(0.22, audioCtx.currentTime + 0.08); // onset pluck
-        gainNode.gain.exponentialRampToValueAtTime(0.005, audioCtx.currentTime + 3.0); // smooth decay
-      }
-
-      osc.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-
-      osc.start();
-
-      activeOscillatorRef.current = osc;
-      activeGainRef.current = gainNode;
+      activeGainRef.current = masterGain;
+      activeOscillatorsRef.current = trackedOscillators;
       setPlayingStringNum(stringNum);
 
       // Automatic sound termination offset (only if not running a continuous drone)
@@ -847,21 +1289,7 @@ export default function App() {
       if (!str) return;
       const freq = str.frequency * Math.pow(2, fret / 12);
 
-      const osc = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-
-      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.20, audioCtx.currentTime + 0.015);
-      gainNode.gain.exponentialRampToValueAtTime(0.005, audioCtx.currentTime + 1.2);
-
-      osc.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-
-      osc.start();
-      osc.stop(audioCtx.currentTime + 1.4);
+      playGuitarPluckSound(audioCtx, freq, audioCtx.currentTime, 2.8, 0.18, false);
     } catch (err) {
       console.warn("Failed to play note:", err);
     }
@@ -963,22 +1391,7 @@ export default function App() {
             const staggerSeconds = 0.22 * noteCounter; // Melodic scale stagger (220ms per note)
             const playTime = audioCtx!.currentTime + staggerSeconds;
 
-            const osc = audioCtx!.createOscillator();
-            const gainNode = audioCtx!.createGain();
-
-            osc.type = "triangle";
-            osc.frequency.setValueAtTime(freq, playTime);
-
-            gainNode.gain.setValueAtTime(0, audioCtx!.currentTime);
-            gainNode.gain.setValueAtTime(0, playTime);
-            gainNode.gain.linearRampToValueAtTime(0.18, playTime + 0.04);
-            gainNode.gain.exponentialRampToValueAtTime(0.005, playTime + 1.2); // slightly shorter decay for fast runs
-
-            osc.connect(gainNode);
-            gainNode.connect(audioCtx!.destination);
-
-            osc.start(playTime);
-            osc.stop(playTime + 1.4);
+            playGuitarPluckSound(audioCtx, freq, playTime, 1.8, 0.15, false);
             noteCounter++;
           });
         });
@@ -991,28 +1404,9 @@ export default function App() {
           // Calculate frequency
           const freq = str.frequency * Math.pow(2, Number(fret) / 12);
           const staggerSeconds = 0.055 * index; // beautiful, relaxed strum cadence
-
           const playTime = audioCtx!.currentTime + staggerSeconds;
 
-          const osc = audioCtx!.createOscillator();
-          const gainNode = audioCtx!.createGain();
-
-          // Let's use clean "triangle" oscillators for warm resonance
-          osc.type = "triangle";
-          osc.frequency.setValueAtTime(freq, playTime);
-
-          gainNode.gain.setValueAtTime(0, audioCtx!.currentTime);
-          gainNode.gain.setValueAtTime(0, playTime);
-          gainNode.gain.linearRampToValueAtTime(0.18, playTime + 0.06); // pluck onset
-          gainNode.gain.exponentialRampToValueAtTime(0.005, playTime + 2.5); // long organic acoustic sustain
-
-          osc.connect(gainNode);
-          gainNode.connect(audioCtx!.destination);
-
-          osc.start(playTime);
-
-          // Schedule stopping to conserve resources
-          osc.stop(playTime + 2.8);
+          playGuitarPluckSound(audioCtx, freq, playTime, 2.8, 0.15, false);
         });
       }
     } catch (err) {
@@ -1265,10 +1659,40 @@ export default function App() {
   const maxFret = allFretsList.length > 0 ? Math.max(...allFretsList) : 0;
   const startFret = maxFret > 5 ? Math.min(...allFretsList) : 1;
   const showNut = startFret === 1;
-  const filteredChords = [...(chordFilter === "all" 
-    ? COMMON_CHORDS 
-    : COMMON_CHORDS.filter(c => c.tags.includes(chordFilter)))]
-    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+  const filteredChords = (() => {
+    let list = [...(chordFilter === "all" 
+      ? COMMON_CHORDS 
+      : COMMON_CHORDS.filter(c => c.tags.includes(chordFilter)))];
+
+    if (chordSearchQuery.trim()) {
+      const query = chordSearchQuery.toLowerCase().trim().replace(/[\s\-]/g, "");
+      let queryNormalized = query;
+      if (query.endsWith("moll") || query.endsWith("mol")) {
+        queryNormalized = query.replace(/moll?$/, "m");
+      } else if (query.endsWith("dur")) {
+        queryNormalized = query.replace(/dur$/, "");
+      }
+
+      list = list.filter((chord) => {
+        const chordNameClean = chord.name.toLowerCase().trim().replace(/[\s\-]/g, "");
+        let chordNameNorm = chordNameClean
+          .replace(/\(moll\)/g, "m")
+          .replace(/\(dur\)/g, "")
+          .replace(/[\(\)]/g, "")
+          .replace(/\s+/g, "");
+
+        if (chordNameClean.includes(queryNormalized) || chordNameNorm.includes(queryNormalized)) {
+          return true;
+        }
+        if (queryNormalized === "gm" && (chordNameClean.includes("gm") || (chordNameClean.includes("moll") && chordNameClean.startsWith("g")))) {
+          return true;
+        }
+        return chordNameClean.startsWith(queryNormalized) || chordNameNorm.startsWith(queryNormalized);
+      });
+    }
+
+    return list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+  })();
 
   // Helper to render the LED segment metric (Horizontal Tuning Bar)
   const renderHorizontalTuningBar = () => {
@@ -2229,61 +2653,6 @@ export default function App() {
           </div>
         </button>
         
-        {/* Reference Segment */}
-        <div className="flex-1 md:flex-initial min-w-0">
-          <div 
-            id="kammerton-toggle-container"
-            className="flex items-center justify-center sm:justify-start bg-neutral-900/50 border border-white/10 rounded-xl hover:border-white/20 hover:bg-neutral-800/40 shadow-lg p-0.5 sm:p-1 gap-1 sm:gap-1.5 w-full h-full"
-          >
-            {/* Play Button Trigger */}
-            <button
-              type="button"
-              title={`${referenceA4} Hz Ton abspielen`}
-              onClick={(e) => {
-                e.stopPropagation();
-                playReferencePitch(referenceA4, 99);
-              }}
-              className="w-7 h-7 rounded-lg border flex items-center justify-center transition-all cursor-pointer bg-neutral-950/80 border-white/5 hover:border-white/15 text-white/50 hover:text-white shrink-0"
-            >
-              {playingStringNum === 99 ? (
-                <Pause size={10} className="fill-current" />
-              ) : (
-                <Volume2 size={11} className="transition-transform group-hover:scale-110" />
-              )}
-            </button>
-
-            {/* Freq Toggle switch */}
-            <div 
-              role="button"
-              tabIndex={0}
-              onClick={() => {
-                const targetFreq = referenceA4 === 440 ? 432 : 440;
-                setReferenceA4(targetFreq);
-                if (playingStringNum === 99) {
-                  setTimeout(() => {
-                    playReferencePitch(targetFreq, 99);
-                  }, 50);
-                }
-              }}
-              className="flex flex-col leading-tight px-1 py-0.5 sm:px-2.5 sm:py-1 text-left select-none cursor-pointer group rounded-lg hover:bg-white/5 min-w-0"
-            >
-              <span className="text-[8px] uppercase tracking-[0.12em] sm:tracking-[0.25em] text-white/45 font-bold mb-0.5 truncate">
-                Concert Pitch
-              </span>
-              <span className="text-[10px] sm:text-[11px] font-mono font-bold text-white/80 uppercase flex items-center gap-1 min-w-0 truncate">
-                A4=<span className={referenceA4 === 432 ? "text-amber-400 font-extrabold" : "text-white"}>{referenceA4}</span>
-                <span className={`text-[8.5px] scale-80 font-sans px-1 py-[0.5px] rounded uppercase hidden xl:inline-block ${
-                  referenceA4 === 432 
-                    ? "bg-amber-500/10 text-amber-400 border border-amber-500/30 animate-pulse" 
-                    : "bg-white/5 text-white/40"
-                }`}>
-                  {referenceA4 === 432 ? "Klang" : "Std"}
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
-
         {/* Lock / Automatic Mode Segment */}
         <div className="relative font-sans z-50 animate-none flex-1 md:flex-initial min-w-0" ref={modusDropdownRef}>
           <button 
@@ -2465,98 +2834,174 @@ export default function App() {
           )}
         </div>
 
-        {/* Tuning Preset Selector Segment */}
-        <div className="relative font-sans z-50 animate-none flex-1 md:flex-initial min-w-0" ref={tuningDropdownRef}>
-          <button 
+        {/* Unified Kammerton & Stimmung Selector Segment */}
+        <div className="relative font-sans z-[60] animate-none flex-1 md:flex-initial min-w-0" ref={tuningDropdownRef}>
+          <div 
             id="stimm-preset-dropdown-btn"
+            role="button"
+            tabIndex={0}
             onClick={() => setIsTuningDropdownOpen(!isTuningDropdownOpen)}
-            className="w-full flex items-center justify-center sm:justify-start bg-neutral-900/50 border border-white/10 rounded-xl hover:bg-neutral-800/45 hover:border-white/20 active:scale-95 transition-all text-left shadow-lg cursor-pointer group px-1 sm:px-3.5 py-1.5 gap-1 sm:gap-2.5 text-white/85"
-            title="Wähle Stimmungs-Voreinstellung"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setIsTuningDropdownOpen(!isTuningDropdownOpen);
+              }
+            }}
+            className="w-full flex items-center justify-between bg-neutral-900/50 border border-white/10 rounded-xl hover:bg-neutral-800/45 hover:border-white/20 active:scale-95 transition-all text-left shadow-lg cursor-pointer group px-2 sm:px-3.5 py-1.5 gap-2 text-white/85"
+            title="Wähle Kammerton & Stimmung"
           >
-            <div className="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-lg bg-neutral-950/80 border border-white/5 transition-all">
-              <Zap size={12} className="text-amber-400" />
-            </div>
-            <div className="flex flex-col leading-tight pr-1 min-w-0">
-              <span className="text-[8px] uppercase tracking-[0.12em] sm:tracking-[0.18em] text-white/45 font-bold mb-0.5 truncate">
-                Stimmung
-              </span>
-              <span className="text-[10px] sm:text-[11px] font-mono font-bold uppercase flex items-center gap-1 min-w-0 truncate">
-                {selectedInstrumentId === "ukulele" ? (
-                  UKULELE_TUNING_PRESETS.find(p => p.id === selectedTuningId)?.name.split(" ")[0] || "Standard"
-                ) : selectedInstrumentId === "guitar12" ? (
-                  "Standard"
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                title={`${referenceA4} Hz Referenzton abspielen`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  playReferencePitch(referenceA4, 99);
+                }}
+                className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all cursor-pointer shrink-0 ${
+                  playingStringNum === 99 
+                    ? "bg-amber-500/10 border-amber-500/30 text-amber-400 font-extrabold" 
+                    : "bg-neutral-950/80 border-white/5 hover:border-white/15 text-white/50 hover:text-white"
+                }`}
+              >
+                {playingStringNum === 99 ? (
+                  <Pause size={10} className="fill-current" />
                 ) : (
-                  GUITAR_TUNING_PRESETS.find(p => p.id === selectedTuningId)?.name.split(" ")[0] || "Standard"
+                  <Volume2 size={11} className="transition-transform group-hover:scale-110" />
                 )}
-                <ChevronDown size={11} className={`text-white/40 transition-transform duration-200 ${isTuningDropdownOpen ? "rotate-180" : ""}`} />
-              </span>
+              </button>
+
+              <div className="flex flex-col leading-tight min-w-0">
+                <span className="text-[8px] uppercase tracking-[0.12em] sm:tracking-[0.18em] text-white/45 font-bold mb-0.5 truncate">
+                  A4 = {referenceA4} Hz
+                </span>
+                <span className="text-[10px] sm:text-[11px] font-mono font-bold uppercase text-white/80 transition-colors truncate">
+                  {selectedInstrumentId === "ukulele" ? (
+                    UKULELE_TUNING_PRESETS.find(p => p.id === selectedTuningId)?.name.split(" ")[0] || "Standard"
+                  ) : selectedInstrumentId === "guitar12" ? (
+                    "Standard"
+                  ) : (
+                    GUITAR_TUNING_PRESETS.find(p => p.id === selectedTuningId)?.name.split(" ")[0] || "Standard"
+                  )}
+                </span>
+              </div>
             </div>
-          </button>
+            <ChevronDown size={11} className={`text-white/40 shrink-0 transition-transform duration-200 ${isTuningDropdownOpen ? "rotate-180" : ""}`} />
+          </div>
 
           {isTuningDropdownOpen && (
-            <div className="absolute left-1/2 -translate-x-1/2 md:left-auto md:right-0 md:translate-x-0 mt-2 w-64 bg-neutral-900/95 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 animate-fade-in pointer-events-auto py-1.5 px-1.5 flex flex-col gap-1 text-left">
-              <div className="px-2.5 py-1 border-b border-white/5 mb-1 flex items-center justify-between">
-                <span className="text-[8px] uppercase tracking-wider text-white/40 font-bold">
-                  Stimmung wählen
-                </span>
-                {selectedInstrumentId === "guitar12" && (
-                  <span className="text-[7.5px] uppercase font-mono px-1.5 py-[1px] rounded bg-white/5 text-white/40 border border-white/10">
-                    Fixiert
+            <div className="absolute left-1/2 -translate-x-1/2 md:left-auto md:right-0 md:translate-x-0 mt-2 w-72 bg-neutral-900/95 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 animate-fade-in pointer-events-auto py-2.5 px-2.5 flex flex-col gap-2.5 text-left">
+              {/* Part 1: Concert Pitch (Kammerton) Controls */}
+              <div className="flex flex-col gap-1.5 pb-2 border-b border-white/5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[8px] uppercase tracking-wider text-white/40 font-bold">
+                    Kammerton (A4)
                   </span>
+                  <span className="text-[8.5px] font-mono text-amber-400/80">
+                    Aktuell: {referenceA4} Hz
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-black/25 p-1 rounded-lg border border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReferenceA4(440);
+                      if (playingStringNum === 99) {
+                        setTimeout(() => playReferencePitch(440, 99), 50);
+                      }
+                    }}
+                    className={`flex-1 py-1 px-1.5 rounded font-mono text-[10px] sm:text-xs transition-all cursor-pointer text-center border ${
+                      referenceA4 === 440
+                        ? "bg-amber-500/20 text-amber-400 font-bold border-amber-500/30"
+                        : "text-white/50 hover:bg-white/5 hover:text-white border-transparent"
+                    }`}
+                  >
+                    440 Hz (Std)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReferenceA4(432);
+                      if (playingStringNum === 99) {
+                        setTimeout(() => playReferencePitch(432, 99), 50);
+                      }
+                    }}
+                    className={`flex-1 py-1 px-1.5 rounded font-mono text-[10px] sm:text-xs transition-all cursor-pointer text-center border ${
+                      referenceA4 === 432
+                        ? "bg-amber-500/20 text-amber-400 font-bold border-amber-500/30 animate-pulse"
+                        : "text-white/50 hover:bg-white/5 hover:text-white border-transparent"
+                    }`}
+                  >
+                    432 Hz (Klang)
+                  </button>
+                </div>
+              </div>
+
+              {/* Part 2: Tuning Presets list */}
+              <div className="flex flex-col gap-1 max-h-[220px] overflow-y-auto pr-0.5">
+                <div className="pb-1 flex items-center justify-between">
+                  <span className="text-[8px] uppercase tracking-wider text-white/40 font-bold">
+                    Stimmung wählen
+                  </span>
+                  {selectedInstrumentId === "guitar12" && (
+                    <span className="text-[7.5px] uppercase font-mono px-1.5 py-[1px] rounded bg-white/5 text-white/40 border border-white/10">
+                      Fixiert
+                    </span>
+                  )}
+                </div>
+
+                {selectedInstrumentId === "guitar12" ? (
+                  <div className="px-2 py-1.5 text-xs italic text-white/35 font-sans">
+                    Der 12-Saiter Modus läuft standardmäßig in doppelten Oktaven.
+                  </div>
+                ) : selectedInstrumentId === "ukulele" ? (
+                  UKULELE_TUNING_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      onClick={() => {
+                        setSelectedTuningId(preset.id);
+                        setIsTuningDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center justify-between cursor-pointer ${
+                        selectedTuningId === preset.id
+                          ? "bg-amber-500/15 text-amber-400 font-extrabold border border-amber-500/20"
+                          : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
+                      }`}
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-bold font-sans text-white/80">{preset.name}</span>
+                        <span className="text-[8.5px] text-white/35">{preset.pitches.join(" • ")}</span>
+                      </div>
+                      {selectedTuningId === preset.id && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                      )}
+                    </button>
+                  ))
+                ) : (
+                  GUITAR_TUNING_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      onClick={() => {
+                        setSelectedTuningId(preset.id);
+                        setIsTuningDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center justify-between cursor-pointer ${
+                        selectedTuningId === preset.id
+                          ? "bg-amber-500/15 text-amber-400 font-extrabold border border-amber-500/20"
+                          : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
+                      }`}
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-bold font-sans text-white/80">{preset.name}</span>
+                        <span className="text-[8.5px] text-white/35">{preset.pitches.join(" • ")}</span>
+                      </div>
+                      {selectedTuningId === preset.id && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                      )}
+                    </button>
+                  ))
                 )}
               </div>
-              
-              {selectedInstrumentId === "guitar12" ? (
-                <div className="px-3 py-2 text-xs italic text-white/35 font-sans">
-                  Der 12-Saiter Modus läuft standardmäßig in doppelten Oktaven.
-                </div>
-              ) : selectedInstrumentId === "ukulele" ? (
-                UKULELE_TUNING_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    onClick={() => {
-                      setSelectedTuningId(preset.id);
-                      setIsTuningDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center justify-between cursor-pointer ${
-                      selectedTuningId === preset.id
-                        ? "bg-amber-500/15 text-amber-400 font-extrabold border border-amber-500/20"
-                        : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
-                    }`}
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-bold font-sans text-white/80">{preset.name}</span>
-                      <span className="text-[8.5px] text-white/35">{preset.pitches.join(" • ")}</span>
-                    </div>
-                    {selectedTuningId === preset.id && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                    )}
-                  </button>
-                ))
-              ) : (
-                GUITAR_TUNING_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    onClick={() => {
-                      setSelectedTuningId(preset.id);
-                      setIsTuningDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center justify-between cursor-pointer ${
-                      selectedTuningId === preset.id
-                        ? "bg-amber-500/15 text-amber-400 font-extrabold border border-amber-500/20"
-                        : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
-                    }`}
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-bold font-sans text-white/80">{preset.name}</span>
-                      <span className="text-[8.5px] text-white/35">{preset.pitches.join(" • ")}</span>
-                    </div>
-                    {selectedTuningId === preset.id && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                    )}
-                  </button>
-                ))
-              )}
             </div>
           )}
         </div>
@@ -2669,15 +3114,62 @@ export default function App() {
           }
 
           /* Details and Text Muting */
-          .sunshine-mode .text-white\\/40, .sunshine-mode .text-white\\/45,
-          .sunshine-mode .text-white\\/50, .sunshine-mode .text-white\\/35,
+          .sunshine-mode .text-white\\/45,
+          .sunshine-mode .text-white\\/50,
           .sunshine-mode .text-stone-400 {
-            color: #7C694E !important;
+            color: #382815 !important;
+          }
+          .sunshine-mode .text-white\\/40,
+          .sunshine-mode .text-white\\/35,
+          .sunshine-mode .text-white\\/30,
+          .sunshine-mode .text-white\\/25,
+          .sunshine-mode .text-white\\/20,
+          .sunshine-mode .text-white\\/15,
+          .sunshine-mode .text-white\\/10 {
+            color: #52402B !important;
           }
           .park-mode .text-white\\/40, .park-mode .text-white\\/45,
           .park-mode .text-white\\/50, .park-mode .text-white\\/35,
+          .park-mode .text-white\\/30, .park-mode .text-white\\/25,
+          .park-mode .text-white\\/20, .park-mode .text-white\\/15,
+          .park-mode .text-white\\/10,
           .park-mode .text-stone-400 {
-            color: #3C5A40 !important;
+            color: #2F4D35 !important;
+          }
+
+          .sunshine-mode .text-amber-400,
+          .sunshine-mode .text-yellow-300,
+          .sunshine-mode .text-yellow-400 {
+            color: #8C4004 !important;
+          }
+          .park-mode .text-amber-400,
+          .park-mode .text-yellow-300,
+          .park-mode .text-yellow-400 {
+            color: #15803D !important;
+          }
+
+          .sunshine-mode .text-green-300,
+          .sunshine-mode .text-green-400,
+          .sunshine-mode .text-green-500,
+          .sunshine-mode .text-green-600,
+          .sunshine-mode .text-emerald-400,
+          .sunshine-mode .text-emerald-500 {
+            color: #15803D !important;
+            text-shadow: none !important;
+          }
+          .park-mode .text-green-300,
+          .park-mode .text-green-400,
+          .park-mode .text-green-500,
+          .park-mode .text-green-600,
+          .park-mode .text-emerald-400,
+          .park-mode .text-emerald-500 {
+            color: #17bc27 !important;
+            text-shadow: none !important;
+          }
+
+          .sunshine-mode [class*="drop-shadow-"],
+          .park-mode [class*="drop-shadow-"] {
+            filter: none !important;
           }
 
           .sunshine-mode .text-white, .sunshine-mode .text-white\\/90,
@@ -2748,20 +3240,20 @@ export default function App() {
 
           /* Human texts */
           .sunshine-mode p, .sunshine-mode span.text-stone-400, .sunshine-mode li {
-            color: #54442A !important;
+            color: #382815 !important;
           }
           .park-mode p, .park-mode span.text-stone-400, .park-mode li {
-            color: #123315 !important;
+            color: #0F2D12 !important;
           }
 
           /* Headings & Accent Labels */
           .sunshine-mode h1, .sunshine-mode h2, .sunshine-mode h3, 
           .sunshine-mode h4, .sunshine-mode h5, .sunshine-mode h6 {
-            color: #92400E !important;
+            color: #7A350B !important;
           }
           .park-mode h1, .park-mode h2, .park-mode h3, 
           .park-mode h4, .park-mode h5, .park-mode h6 {
-            color: #14532D !important;
+            color: #0E3A20 !important;
           }
 
           /* Tune board svg elements */
@@ -2842,6 +3334,52 @@ export default function App() {
             background-color: #A7F3D0 !important;
             color: #047857 !important;
             border-color: #34D399 !important;
+          }
+
+          /* Dropdown select and option overrides for ultra-high contrast readability */
+          .sunshine-mode select {
+            background-color: #FAF5DC !important;
+            color: #302205 !important;
+            border-color: #C2AF7A !important;
+          }
+          .sunshine-mode select option {
+            background-color: #FAF5DC !important;
+            color: #302205 !important;
+          }
+          .sunshine-mode #metronome-practice-card button {
+            color: #4A3319 !important;
+            border-color: #C9B283 !important;
+          }
+          .sunshine-mode #metronome-practice-card button:hover {
+            background-color: #EEDCA8 !important;
+            color: #2F1E0C !important;
+          }
+          .sunshine-mode #metronome-practice-card button.bg-amber-500,
+          .sunshine-mode #metronome-practice-card button.bg-red-500 {
+            color: #1F1505 !important;
+            background-color: #D97706 !important;
+          }
+
+          .park-mode select {
+            background-color: #BBE1B6 !important;
+            color: #061A08 !important;
+            border-color: #729E6C !important;
+          }
+          .park-mode select option {
+            background-color: #BBE1B6 !important;
+            color: #061A08 !important;
+          }
+          .park-mode #metronome-practice-card button {
+            color: #0E2911 !important;
+            border-color: #79A372 !important;
+          }
+          .park-mode #metronome-practice-card button:hover {
+            background-color: #A3D49C !important;
+            color: #0A1E0C !important;
+          }
+          .park-mode #metronome-practice-card button.bg-amber-500,
+          .park-mode #metronome-practice-card button.bg-red-500 {
+            color: #F0FFF0 !important;
           }
         `}</style>
       )}
@@ -3986,6 +4524,35 @@ export default function App() {
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Chord Search Input */}
+              <div className="relative mb-3.5 flex items-center">
+                <div className="absolute left-3 text-white/40 pointer-events-none flex items-center justify-center">
+                  <Search size={14} className={themeMode === "sunshine" ? "text-amber-800/70" : themeMode === "park" ? "text-emerald-800/70" : "text-white/40"} />
+                </div>
+                <input
+                  type="text"
+                  value={chordSearchQuery}
+                  onChange={(e) => setChordSearchQuery(e.target.value)}
+                  placeholder="Akkord suchen... (z.B. G, Gm, G moll, C, F#)"
+                  className={`w-full pl-9 pr-8 py-2 text-xs font-mono rounded-xl border outline-none transition-all ${
+                    themeMode === "sunshine"
+                      ? "bg-amber-100/30 border-[#E6D4B2]/40 text-amber-950 placeholder-amber-900/45 focus:bg-amber-100/50 focus:border-amber-600/50 focus:ring-1 focus:ring-amber-600/20"
+                      : themeMode === "park"
+                      ? "bg-emerald-100/20 border-emerald-900/15 text-emerald-950 placeholder-emerald-900/45 focus:bg-emerald-100/30 focus:border-[#8CBA86] focus:ring-1 focus:ring-[#8CBA86]/20"
+                      : "bg-black/35 border-white/5 text-white placeholder-white/25 focus:bg-black/50 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/25"
+                  }`}
+                />
+                {chordSearchQuery && (
+                  <button
+                    onClick={() => setChordSearchQuery("")}
+                    className="absolute right-2.5 p-1 text-white/40 hover:text-white/70 transition-colors uppercase font-mono text-[9px] font-black cursor-pointer bg-transparent border-none"
+                    title="Suche zurücksetzen"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
 
               {/* Categorization Tabs */}
@@ -5158,7 +5725,10 @@ export default function App() {
                           <g 
                             key={`major-g-${idx}`} 
                             className="cursor-pointer group select-none transition-all duration-300"
-                            onClick={() => setSelectedCircleKey(idx)}
+                            onClick={() => {
+                              setSelectedCircleKey(idx);
+                              playChordByName(note, "Dur");
+                            }}
                           >
                             <circle 
                               cx={pos.x} 
@@ -5208,7 +5778,11 @@ export default function App() {
                           <g 
                             key={`minor-g-${idx}`} 
                             className="cursor-pointer group select-none transition-all duration-300"
-                            onClick={() => setSelectedCircleKey(idx)}
+                            onClick={() => {
+                              setSelectedCircleKey(idx);
+                              const root = note.replace(/m$/, "");
+                              playChordByName(root, "Moll");
+                            }}
                           >
                             <circle 
                               cx={pos.x} 
@@ -5465,14 +6039,114 @@ export default function App() {
               </div>
             </div>
 
+            {/* Rhythm Sequencer / Custom Beat Customizer */}
+            <div className="bg-black/25 p-4 rounded-xl border border-white/5 space-y-3">
+              <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                <span className="text-[10px] text-white/45 font-mono tracking-wider uppercase font-bold flex items-center gap-1.5">
+                  <span>🪘</span>
+                  <span>Einzelschlag-Sound (Schläge 1-{beatSounds.length})</span>
+                </span>
+                <span className="text-[9px] text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 font-mono">
+                  {beatSounds.length === 4 ? "4/4" : beatSounds.length === 3 ? "3/4" : beatSounds.length === 5 ? "5/4" : beatSounds.length === 6 ? "6/8" : beatSounds.length === 7 ? "7/8" : `${beatSounds.length}/4`} Takt
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {beatSounds.map((currentSound, stepIdx) => {
+                  const playStepIndicator = metronomeBeat === stepIdx && isMetronomePlaying;
+                  return (
+                    <div 
+                      key={stepIdx} 
+                      className={`flex flex-col gap-1.5 p-2 rounded-lg border transition-all ${
+                        playStepIndicator 
+                          ? "bg-amber-500/10 border-amber-400/40 shadow-[0_0_12px_rgba(245,158,11,0.15)]" 
+                          : "bg-neutral-950/40 border-white/5"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[9px] font-mono font-black ${playStepIndicator ? "text-amber-400" : "text-white/45"}`}>
+                          BEAT {stepIdx + 1}
+                        </span>
+                        
+                        {/* Preview / Trigger Sound manually */}
+                        <button
+                          type="button"
+                          onClick={() => playBeatSoundByName(currentSound)}
+                          className="w-5 h-5 rounded hover:bg-white/10 flex items-center justify-center text-white/40 hover:text-white transition-colors cursor-pointer"
+                          title="Sound vorhören"
+                        >
+                          <Volume2 size={10} />
+                        </button>
+                      </div>
+
+                      <select
+                        value={currentSound}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const copy = [...beatSounds];
+                          copy[stepIdx] = val;
+                          setBeatSounds(copy);
+                          // Play sound once when selected so the user immediately gets audio feedback
+                          playBeatSoundByName(val);
+                        }}
+                        className="w-full text-[10px] bg-neutral-900 border border-white/10 rounded px-1 py-1 text-white/80 font-medium font-sans focus:outline-none focus:border-amber-500 cursor-pointer"
+                      >
+                        <option value="djembe_bass">🪘 Djembe Bass</option>
+                        <option value="djembe_tone">🪘 Djembe Open Tone</option>
+                        <option value="djembe_slap">🪘 Djembe Slap</option>
+                        <option value="djembe_flam">🪘 Djembe Flam-Slap</option>
+                        <option value="drum_kick">🥁 Kick Drum</option>
+                        <option value="drum_snare">🥁 Snare Drum</option>
+                        <option value="rimshot">🥁 Rim Shot</option>
+                        <option value="hihat_closed">🔔 Closed Hi-Hat</option>
+                        <option value="hihat_open">🔔 Open Hi-Hat</option>
+                        <option value="hand_clap">👏 Hand Clap</option>
+                        <option value="classic_accent">⏱️ Accent Click</option>
+                        <option value="classic">⏱️ Tempo Click</option>
+                        <option value="mute">🔇 Stumm / Pause</option>
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Pre-made groove configurations template dropdown */}
+              <div className="pt-1.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
+                <span className="text-[8.5px] font-mono text-white/35 uppercase tracking-wider">Quick-Presets:</span>
+                <div className="flex gap-1 overflow-x-auto w-full sm:w-auto pb-0.5 scrollbar-thin">
+                  {[
+                    { name: "🪘 Afro Djembe", pattern: ["djembe_bass", "djembe_tone", "djembe_slap", "djembe_tone"] },
+                    { name: "🪘 Djembe Flam-Groove", pattern: ["djembe_bass", "djembe_flam", "djembe_tone", "djembe_slap"] },
+                    { name: "🥁 Classic Funk/HiHat", pattern: ["drum_kick", "hihat_closed", "drum_snare", "hihat_open"] },
+                    { name: "🥁 Rimshot Rock", pattern: ["drum_kick", "rimshot", "drum_kick", "drum_snare"] },
+                    { name: "👏 Pop Clap", pattern: ["drum_kick", "hand_clap", "drum_kick", "hand_clap"] },
+                    { name: "⏱️ Metronom", pattern: ["classic_accent", "classic", "classic", "classic"] },
+                  ].map((groove, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setBeatSounds(groove.pattern);
+                        // Trigger the 1st step to let the user hear the groove instantly
+                        playBeatSoundByName(groove.pattern[0]);
+                      }}
+                      className="px-2 py-0.5 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-[8px] sm:text-[9.5px] font-medium border border-white/5 transition-all cursor-pointer whitespace-nowrap"
+                    >
+                      {groove.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             {/* Visual Beat Track + Interactive Trigger */}
-            <div className="flex items-center justify-between gap-4 pt-1">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
               {/* Trigger Metronome Buttons */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                 <button
                   type="button"
                   onClick={() => setIsMetronomePlaying(!isMetronomePlaying)}
-                  className={`px-5 py-2.5 rounded-xl text-xs font-mono font-black uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center gap-1.5 ${
+                  className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-mono font-black uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5 ${
                     isMetronomePlaying
                       ? "bg-red-500 hover:bg-red-400 text-neutral-950 shadow-[0_4px_14px_rgba(239,68,68,0.25)] active:scale-[0.98]"
                       : "bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-[0_4px_14px_rgba(245,158,11,0.25)] active:scale-[0.98]"
@@ -5493,21 +6167,55 @@ export default function App() {
 
                 <button
                   type="button"
-                  onClick={handleTapTempo}
-                  className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/15 text-white/80 active:scale-95 transition-all rounded-xl text-xs font-mono font-bold tracking-wide cursor-pointer"
-                  title="Tippe das Tempo im Beat, um das BPM-Zahl automatisch zu ermitteln"
+                  onClick={() => {
+                    setBeatSounds((prev) => {
+                      // Cycle: 4/4 -> 3/4 -> 5/4 -> 6/8 -> 7/8 -> 2/4 -> 4/4
+                      const len = prev.length;
+                      if (len === 4) {
+                        return ["djembe_bass", "djembe_tone", "djembe_slap"]; // 3/4 waltz
+                      } else if (len === 3) {
+                        return ["djembe_bass", "djembe_tone", "djembe_slap", "djembe_tone", "classic"]; // 5/4 jazz
+                      } else if (len === 5) {
+                        return ["djembe_bass", "classic", "classic", "djembe_slap", "classic", "classic"]; // 6/8 ballad
+                      } else if (len === 6) {
+                        return ["djembe_bass", "djembe_flam", "djembe_tone", "djembe_slap", "djembe_tone", "hihat_closed", "hihat_open"]; // 7/8 folk
+                      } else if (len === 7) {
+                        return ["djembe_bass", "djembe_slap"]; // 2/4 march
+                      } else {
+                        return ["djembe_bass", "djembe_slap", "djembe_slap", "classic"]; // 4/4 standard
+                      }
+                    });
+                  }}
+                  className="px-3 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 hover:border-amber-300 font-bold border border-amber-600/30 transition-all rounded-xl text-xs font-mono tracking-wide cursor-pointer flex items-center gap-1.5 shadow-[0_4px_12px_rgba(245,158,11,0.15)] active:scale-[0.98]"
+                  title="Taktart wechseln (4/4 -> 3/4 -> 5/4 -> 6/8 -> 7/8 -> 2/4)"
                 >
-                  ⏳ TAP
+                  <span>🥁</span>
+                  <span>Taktart: {beatSounds.length === 4 ? "4/4" : beatSounds.length === 3 ? "3/4" : beatSounds.length === 5 ? "5/4" : beatSounds.length === 6 ? "6/8" : beatSounds.length === 7 ? "7/8" : `${beatSounds.length}/4`}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleTapTempo}
+                  className={`px-3 py-2.5 border transition-all rounded-xl text-xs font-mono font-bold tracking-wide cursor-pointer flex items-center gap-1.5 ${
+                    isTapFlashing
+                      ? "bg-amber-500 text-neutral-950 border-amber-400 scale-[0.93] shadow-[0_0_14px_rgba(245,158,11,0.4)]"
+                      : "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/15 text-white/80 active:scale-95"
+                  }`}
+                  title="Tippe das Tempo im Beat, um die BPM-Zahl automatisch zu ermitteln (Tastatur: Taste 'T' oder 'Leertaste')"
+                >
+                  <span>⏳</span>
+                  <span>TAP {tapTimes.length > 0 && <span className="bg-neutral-950/40 text-[9px] px-1.5 py-0.5 rounded ml-1 text-amber-400 font-black tracking-tighter">{tapTimes.length}x</span>}</span>
                 </button>
               </div>
 
               {/* Visual Beat Dot Row */}
-              <div className="flex items-center gap-1.5 bg-black/20 px-3 py-2 rounded-xl border border-white/5">
-                {[1, 2, 3, 4].map((b) => {
-                  const isActive = metronomeBeat === b;
+              <div className="flex items-center justify-between sm:justify-end gap-1.5 bg-black/20 px-3 py-2 rounded-xl border border-white/5">
+                {beatSounds.map((_, idx) => {
+                  const b = idx + 1;
+                  const isActive = metronomeBeat === idx;
                   return (
                     <div
-                      key={b}
+                      key={idx}
                       className={`relative w-6 h-6 rounded-md border transition-all duration-100 flex items-center justify-center ${
                         isActive
                           ? b === 1
