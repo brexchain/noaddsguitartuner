@@ -20,7 +20,7 @@
  */
 
 import { useEffect, useRef, useState, CSSProperties } from "react";
-import { Mic, MicOff, Volume2, Info, Settings, Zap, CheckCircle2, RefreshCw, Target, Radio, Play, Pause, ChevronDown, X, RotateCw, Sun, SunDim, Trees } from "lucide-react";
+import { Mic, MicOff, Volume2, Info, Settings, Zap, CheckCircle2, RefreshCw, Target, Radio, Play, Pause, ChevronDown, X, RotateCw, Sun, SunDim, Trees, Timer, BookOpen } from "lucide-react";
 import { STANDARD_GUITAR_STRINGS, UKULELE_STRINGS, TWELVE_STRING_GUITAR_STRINGS, GuitarString } from "./types";
 import { detectGuitarPitch, findClosestGuitarString, findClosestChromaticNote } from "./utils/audioProcessor";
 
@@ -35,6 +35,27 @@ const SMOOTHING_PRESETS: SmoothingPreset[] = [
   { name: "Zackig", alpha: 0.85, description: "Direkte Saiten-Erkennung ohne jede Bremse (etwas zappelig)" },
   { name: "Optimal", alpha: 0.35, description: "Der goldene Mittelweg für glückliche Saitenzupfer" },
   { name: "Träge", alpha: 0.15, description: "Maximale Trägheit gegen zittrige Greifer oder Windböen" },
+];
+
+interface TuningPreset {
+  id: string;
+  name: string;
+  notes: string[];
+  pitches: string[];
+  freqs: number[];
+}
+
+const GUITAR_TUNING_PRESETS: TuningPreset[] = [
+  { id: "standard", name: "Standard E-A-D-G-H-E", notes: ["E", "H", "G", "D", "A", "E"], pitches: ["E4", "H3", "G3", "D3", "A2", "E2"], freqs: [329.63, 246.94, 196.00, 146.83, 110.00, 82.41] },
+  { id: "drop-d", name: "Drop D (D-A-D-G-H-E)", notes: ["E", "H", "G", "D", "A", "D"], pitches: ["E4", "H3", "G3", "D3", "A2", "D2"], freqs: [329.63, 246.94, 196.00, 146.83, 110.00, 73.42] },
+  { id: "half-step", name: "Halbton tiefer (Es-As-Des-Ges-B-Es)", notes: ["Eb", "Hb", "Gb", "Db", "Ab", "Eb"], pitches: ["Eb4", "Bb3", "Gb3", "Db3", "Ab2", "Eb2"], freqs: [311.13, 233.08, 185.00, 138.59, 103.83, 77.78] },
+  { id: "dadgad", name: "DADGAD", notes: ["D", "A", "G", "D", "A", "D"], pitches: ["D4", "A3", "G3", "D3", "A2", "D2"], freqs: [293.66, 220.00, 196.00, 146.83, 110.00, 73.42] },
+  { id: "open-g", name: "Open G (D-G-D-G-H-D)", notes: ["D", "H", "G", "D", "G", "D"], pitches: ["D4", "H3", "G3", "D3", "G2", "D2"], freqs: [293.66, 246.94, 196.00, 146.83, 98.00, 73.42] }
+];
+
+const UKULELE_TUNING_PRESETS: TuningPreset[] = [
+  { id: "standard", name: "Standard (G-C-E-A)", notes: ["A", "E", "C", "G"], pitches: ["A4", "E4", "C4", "G4"], freqs: [440.00, 329.63, 261.63, 392.00] },
+  { id: "low-g", name: "Low-G (G3-C-E-A)", notes: ["A", "E", "C", "G"], pitches: ["A4", "E4", "C4", "G3"], freqs: [440.00, 329.63, 261.63, 196.00] }
 ];
 
 interface Chord {
@@ -374,16 +395,37 @@ export default function App() {
 
   const [selectedInstrumentId, setSelectedInstrumentId] = useState<"guitar" | "ukulele" | "guitar12">("guitar");
   const selectedInstrumentIdRef = useRef<"guitar" | "ukulele" | "guitar12">("guitar");
+  const [selectedTuningId, setSelectedTuningId] = useState<string>("standard");
+
   useEffect(() => {
     selectedInstrumentIdRef.current = selectedInstrumentId;
     setTargetStringLock(null);
+    setSelectedTuningId("standard"); // Reset tuning when changing instrument
   }, [selectedInstrumentId]);
 
-  const currentStrings = selectedInstrumentId === "ukulele" 
-    ? UKULELE_STRINGS 
-    : selectedInstrumentId === "guitar12" 
-    ? TWELVE_STRING_GUITAR_STRINGS 
-    : STANDARD_GUITAR_STRINGS;
+  const currentStrings = (() => {
+    if (selectedInstrumentId === "ukulele") {
+      const preset = UKULELE_TUNING_PRESETS.find(p => p.id === selectedTuningId) || UKULELE_TUNING_PRESETS[0];
+      return preset.freqs.map((freq, idx) => ({
+        number: idx + 1,
+        note: preset.notes[idx],
+        pitch: preset.pitches[idx],
+        frequency: freq
+      }));
+    } else if (selectedInstrumentId === "guitar12") {
+      // 12-string guitar standard
+      return TWELVE_STRING_GUITAR_STRINGS;
+    } else {
+      // 6-string guitar
+      const preset = GUITAR_TUNING_PRESETS.find(p => p.id === selectedTuningId) || GUITAR_TUNING_PRESETS[0];
+      return preset.freqs.map((freq, idx) => ({
+        number: idx + 1,
+        note: preset.notes[idx],
+        pitch: preset.pitches[idx],
+        frequency: freq
+      }));
+    }
+  })();
 
   const tunedGuitarStrings = currentStrings.map(str => ({
     ...str,
@@ -396,6 +438,7 @@ export default function App() {
   }, [tunedGuitarStrings]);
 
   const [isModusDropdownOpen, setIsModusDropdownOpen] = useState<boolean>(false);
+  const [activeFooterTab, setActiveFooterTab] = useState<"chord" | "fretboard" | "practice" | null>(null);
   const [displayMode, setDisplayMode] = useState<"soundhole" | "led-bar">("soundhole");
   const [isDisplayDropdownOpen, setIsDisplayDropdownOpen] = useState<boolean>(false);
   const [soundholeRotation, setSoundholeRotation] = useState<number>(0);
@@ -446,6 +489,96 @@ export default function App() {
   // WhatsApp feedback flow state variable
   const [whatsappMessage, setWhatsappMessage] = useState<string>("");
 
+  // Continuous drone toggle for ear tuning reference tone
+  const [isContinuousReference, setIsContinuousReference] = useState<boolean>(false);
+
+  // Practice Metronome & Rhythm Partner States
+  const [metronomeBpm, setMetronomeBpm] = useState<number>(120);
+  const [isMetronomePlaying, setIsMetronomePlaying] = useState<boolean>(false);
+  const [metronomeBeat, setMetronomeBeat] = useState<number>(0);
+  const metronomeTimerRef = useRef<any>(null);
+  const metronomeBeatRef = useRef<number>(0);
+  const [tapTimes, setTapTimes] = useState<number[]>([]);
+
+  // Web Audio Click Synthesis for Practice Metronome
+  const playMetronomeClick = (isFirstBeat: boolean) => {
+    try {
+      let audioCtx = audioCtxRef.current;
+      if (!audioCtx || audioCtx.state === "closed") {
+        const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+        audioCtx = new AudioCtxClass();
+        audioCtxRef.current = audioCtx;
+      }
+      if (audioCtx.state === "suspended") {
+        audioCtx!.resume();
+      }
+
+      const osc = audioCtx!.createOscillator();
+      const gainNode = audioCtx!.createGain();
+
+      osc.type = "sine";
+      // High-pitched woodblock click for accent beat, mid-pitched for non-accent
+      osc.frequency.setValueAtTime(isFirstBeat ? 1000 : 600, audioCtx!.currentTime);
+
+      gainNode.gain.setValueAtTime(0, audioCtx!.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.12, audioCtx!.currentTime + 0.005);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx!.currentTime + 0.08);
+
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx!.destination);
+      osc.start();
+      osc.stop(audioCtx!.currentTime + 0.1);
+    } catch (err) {
+      console.warn("Metronome sound failed:", err);
+    }
+  };
+
+  // Manage Metronome ticking
+  useEffect(() => {
+    if (isMetronomePlaying) {
+      metronomeBeatRef.current = 0;
+      setMetronomeBeat(0);
+      
+      const intervalMs = (60 / metronomeBpm) * 1000;
+      
+      // Initial tick
+      playMetronomeClick(true);
+      
+      metronomeTimerRef.current = setInterval(() => {
+        metronomeBeatRef.current = (metronomeBeatRef.current + 1) % 4;
+        setMetronomeBeat(metronomeBeatRef.current);
+        playMetronomeClick(metronomeBeatRef.current === 0);
+      }, intervalMs);
+    } else {
+      if (metronomeTimerRef.current) {
+        clearInterval(metronomeTimerRef.current);
+      }
+    }
+    return () => {
+      if (metronomeTimerRef.current) {
+        clearInterval(metronomeTimerRef.current);
+      }
+    };
+  }, [isMetronomePlaying, metronomeBpm]);
+
+  const handleTapTempo = () => {
+    const now = performance.now();
+    const newTaps = [...tapTimes, now].filter(t => now - t < 2500); // keep within 2.5s
+    setTapTimes(newTaps);
+
+    if (newTaps.length >= 2) {
+      const intervals = [];
+      for (let i = 1; i < newTaps.length; i++) {
+        intervals.push(newTaps[i] - newTaps[i - 1]);
+      }
+      const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+      const bpm = Math.round(60000 / avgInterval);
+      if (bpm >= 40 && bpm <= 240) {
+        setMetronomeBpm(bpm);
+      }
+    }
+  };
+
   // Smoothing filters state trackers
   const lastFreqRef = useRef<number>(-1);
   const lastCentsRef = useRef<number>(0);
@@ -462,6 +595,8 @@ export default function App() {
   }, [selectedPreset]);
 
   // Click-away listener for custom dropdown managers
+  const [isTuningDropdownOpen, setIsTuningDropdownOpen] = useState<boolean>(false);
+  const tuningDropdownRef = useRef<HTMLDivElement | null>(null);
   const modusDropdownRef = useRef<HTMLDivElement | null>(null);
   const displayDropdownRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -477,6 +612,12 @@ export default function App() {
         !displayDropdownRef.current.contains(event.target as Node)
       ) {
         setIsDisplayDropdownOpen(false);
+      }
+      if (
+        tuningDropdownRef.current && 
+        !tuningDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsTuningDropdownOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -644,10 +785,16 @@ export default function App() {
       osc.type = "triangle";
       osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
 
-      // Create a nice pluck-and-fade envelope (avoid harsh steady waveforms)
+      // Continuous drone check versus simple plucky fade
       gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.22, audioCtx.currentTime + 0.08); // onset pluck
-      gainNode.gain.exponentialRampToValueAtTime(0.005, audioCtx.currentTime + 3.0); // smooth decay
+      if (isContinuousReference) {
+        // Sustaining drone note
+        gainNode.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 0.08);
+      } else {
+        // Create a nice pluck-and-fade envelope
+        gainNode.gain.linearRampToValueAtTime(0.22, audioCtx.currentTime + 0.08); // onset pluck
+        gainNode.gain.exponentialRampToValueAtTime(0.005, audioCtx.currentTime + 3.0); // smooth decay
+      }
 
       osc.connect(gainNode);
       gainNode.connect(audioCtx.destination);
@@ -658,10 +805,12 @@ export default function App() {
       activeGainRef.current = gainNode;
       setPlayingStringNum(stringNum);
 
-      // Automatic sound termination offset
-      playTimeoutRef.current = window.setTimeout(() => {
-        stopReferencePitch();
-      }, 3000);
+      // Automatic sound termination offset (only if not running a continuous drone)
+      if (!isContinuousReference) {
+        playTimeoutRef.current = window.setTimeout(() => {
+          stopReferencePitch();
+        }, 3000);
+      }
 
     } catch (err) {
       console.error("Synthesizer failed:", err);
@@ -2039,7 +2188,7 @@ export default function App() {
         themeMode === "sunshine" ? "bg-[#FFF9E6] border-[#EEDBA5]" :
         themeMode === "park" ? "bg-[#EAF4E8] border-[#C5DBBF]" :
         "bg-[#0A0A0A] border-white/10"
-      } ${isModusDropdownOpen ? "z-40" : "z-10"}`}>
+      } ${(isModusDropdownOpen || isTuningDropdownOpen) ? "z-[70]" : "z-10"}`}>
         {/* Device Status Segment */}
         <button 
           id="mic-head-toggle-btn"
@@ -2123,6 +2272,102 @@ export default function App() {
           </div>
         </div>
 
+        {/* Tuning Preset Selector Segment */}
+        <div className="relative font-sans z-50 animate-none flex-1 md:flex-initial min-w-0" ref={tuningDropdownRef}>
+          <button 
+            id="stimm-preset-dropdown-btn"
+            onClick={() => setIsTuningDropdownOpen(!isTuningDropdownOpen)}
+            className="w-full flex items-center justify-center sm:justify-start bg-neutral-900/50 border border-white/10 rounded-xl hover:bg-neutral-800/45 hover:border-white/20 active:scale-95 transition-all text-left shadow-lg cursor-pointer group px-1 sm:px-3.5 py-1.5 gap-1 sm:gap-2.5 text-white/85"
+            title="Wähle Stimmungs-Voreinstellung"
+          >
+            <div className="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-lg bg-neutral-950/80 border border-white/5 transition-all">
+              <Zap size={12} className="text-amber-400" />
+            </div>
+            <div className="flex flex-col leading-tight pr-1 min-w-0">
+              <span className="text-[8px] uppercase tracking-[0.12em] sm:tracking-[0.18em] text-white/45 font-bold mb-0.5 truncate">
+                Stimmung
+              </span>
+              <span className="text-[10px] sm:text-[11px] font-mono font-bold uppercase flex items-center gap-1 min-w-0 truncate">
+                {selectedInstrumentId === "ukulele" ? (
+                  UKULELE_TUNING_PRESETS.find(p => p.id === selectedTuningId)?.name.split(" ")[0] || "Standard"
+                ) : selectedInstrumentId === "guitar12" ? (
+                  "Standard"
+                ) : (
+                  GUITAR_TUNING_PRESETS.find(p => p.id === selectedTuningId)?.name.split(" ")[0] || "Standard"
+                )}
+                <ChevronDown size={11} className={`text-white/40 transition-transform duration-200 ${isTuningDropdownOpen ? "rotate-180" : ""}`} />
+              </span>
+            </div>
+          </button>
+
+          {isTuningDropdownOpen && (
+            <div className="absolute left-1/2 -translate-x-1/2 md:left-auto md:right-0 md:translate-x-0 mt-2 w-64 bg-neutral-900/95 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 animate-fade-in pointer-events-auto py-1.5 px-1.5 flex flex-col gap-1 text-left">
+              <div className="px-2.5 py-1 border-b border-white/5 mb-1 flex items-center justify-between">
+                <span className="text-[8px] uppercase tracking-wider text-white/40 font-bold">
+                  Stimmung wählen
+                </span>
+                {selectedInstrumentId === "guitar12" && (
+                  <span className="text-[7.5px] uppercase font-mono px-1.5 py-[1px] rounded bg-white/5 text-white/40 border border-white/10">
+                    Fixiert
+                  </span>
+                )}
+              </div>
+              
+              {selectedInstrumentId === "guitar12" ? (
+                <div className="px-3 py-2 text-xs italic text-white/35 font-sans">
+                  Der 12-Saiter Modus läuft standardmäßig in doppelten Oktaven.
+                </div>
+              ) : selectedInstrumentId === "ukulele" ? (
+                UKULELE_TUNING_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    onClick={() => {
+                      setSelectedTuningId(preset.id);
+                      setIsTuningDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center justify-between cursor-pointer ${
+                      selectedTuningId === preset.id
+                        ? "bg-amber-500/15 text-amber-400 font-extrabold border border-amber-500/20"
+                        : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
+                    }`}
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-bold font-sans text-white/80">{preset.name}</span>
+                      <span className="text-[8.5px] text-white/35">{preset.pitches.join(" • ")}</span>
+                    </div>
+                    {selectedTuningId === preset.id && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    )}
+                  </button>
+                ))
+              ) : (
+                GUITAR_TUNING_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    onClick={() => {
+                      setSelectedTuningId(preset.id);
+                      setIsTuningDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center justify-between cursor-pointer ${
+                      selectedTuningId === preset.id
+                        ? "bg-amber-500/15 text-amber-400 font-extrabold border border-amber-500/20"
+                        : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
+                    }`}
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-bold font-sans text-white/80">{preset.name}</span>
+                      <span className="text-[8.5px] text-white/35">{preset.pitches.join(" • ")}</span>
+                    </div>
+                    {selectedTuningId === preset.id && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Lock / Automatic Mode Segment */}
         <div className="relative font-sans z-50 animate-none flex-1 md:flex-initial min-w-0" ref={modusDropdownRef}>
           <button 
@@ -2164,7 +2409,7 @@ export default function App() {
 
           {/* Expanded Dropdown Panel */}
           {isModusDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-72 bg-neutral-900/95 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 animate-fade-in pointer-events-auto">
+            <div className="absolute left-1/2 -translate-x-1/2 md:left-auto md:right-0 md:translate-x-0 mt-2 w-72 bg-neutral-900/95 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 animate-fade-in pointer-events-auto">
               <div className="px-3 py-2 bg-neutral-950/45 border-b border-white/5 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span className="text-[9px] uppercase tracking-wider text-white/40 font-bold">
@@ -2190,6 +2435,31 @@ export default function App() {
               </div>
 
               <div className="p-1.5 flex flex-col gap-1 max-h-[380px] overflow-y-auto">
+                {/* Continuous Drone Mode Toggle */}
+                <div className="px-3 py-2 rounded-lg bg-neutral-950/45 border border-white/5 flex items-center justify-between text-xs font-mono">
+                  <div className="flex flex-col leading-tight">
+                    <span className="font-bold text-white/80 font-sans">🔄 Dauerschleife</span>
+                    <span className="text-[8.5px] text-white/35">Referenzton dauerhaft halten</span>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setIsContinuousReference(!isContinuousReference);
+                      stopReferencePitch();
+                    }}
+                    className={`w-9 h-5 rounded-full p-[2px] transition-all cursor-pointer relative shrink-0 ${
+                      isContinuousReference ? "bg-amber-500" : "bg-neutral-800"
+                    }`}
+                  >
+                    <div className={`w-3.5 h-3.5 rounded-full bg-neutral-950 shadow-md transition-all transform ${
+                      isContinuousReference ? "translate-x-4.5" : "translate-x-0"
+                    }`} />
+                  </button>
+                </div>
+
+                {/* Separator */}
+                <div className="h-[1px] bg-white/5 my-0.5" />
+
                 {/* Option 1: Automatic Detection */}
                 <div 
                   className={`flex items-center justify-between px-3 py-2 rounded-lg transition-all text-xs font-mono cursor-pointer ${
@@ -3347,8 +3617,120 @@ export default function App() {
       {/* Footer Interface Sector: Dial + Selector + Drawer Settings */}
       <section className="w-full max-w-3xl mx-auto px-6 sm:px-10 pb-8 sm:pb-12 relative z-10">
 
-        {/* ==================== INTERACTIVE CHORD DISPLAY ==================== */}
-        <div id="chord-display-container" className="bg-neutral-900/40 border border-white/5 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-stretch gap-6 justify-between shadow-xl">
+        {/* ==================== ADDITIONAL PROFESSIONAL TOOLS TAB SWITCHER ==================== */}
+        <div 
+          id="additional-tools-tab-switcher" 
+          className={
+            themeMode === "sunshine" 
+              ? "mb-5 bg-[#FAF2D8] border border-[#E6D4B2] rounded-2xl p-1.5 flex flex-col sm:flex-row gap-1.5 select-none z-30 relative shadow-md"
+              : themeMode === "park"
+              ? "mb-5 bg-[#BBE1B6] border border-[#92B98E] rounded-2xl p-1.5 flex flex-col sm:flex-row gap-1.5 select-none z-30 relative shadow-md"
+              : "mb-5 bg-neutral-900/35 border border-white/5 rounded-2xl p-1.5 flex flex-col sm:flex-row gap-1.5 select-none z-30 relative backdrop-blur-md"
+          }
+        >
+          <div className="flex-1 flex flex-wrap gap-1.5">
+            {[
+              { id: "chord", label: "Akkord-Finder & Bibliothek 📻", icon: <BookOpen size={13} /> },
+              { id: "fretboard", label: "Griffbrett & Pentatonik 🏆", icon: <Zap size={13} /> },
+              { id: "practice", label: "Metronom & Training ⏱️", icon: <Timer size={13} /> }
+            ].map((tabItem) => {
+              const isActive = activeFooterTab === tabItem.id;
+              let btnClass = "";
+              if (isActive) {
+                if (themeMode === "sunshine") {
+                  btnClass = "bg-amber-600 text-white border-amber-700 font-extrabold shadow-md scale-[1.01]";
+                } else if (themeMode === "park") {
+                  btnClass = "bg-emerald-700 text-white border-emerald-850 font-extrabold shadow-md scale-[1.01]";
+                } else {
+                  btnClass = "bg-amber-500 text-neutral-950 border-amber-400 font-extrabold shadow-[0_4px_12px_rgba(245,158,11,0.22)] scale-[1.01]";
+                }
+              } else {
+                if (themeMode === "sunshine") {
+                  btnClass = "bg-white/40 text-amber-950 border-white/20 hover:bg-white/80 hover:text-amber-950";
+                } else if (themeMode === "park") {
+                  btnClass = "bg-white/20 text-emerald-950 border-white/10 hover:bg-white/60 hover:text-emerald-950";
+                } else {
+                  btnClass = "bg-transparent text-white/50 border-transparent hover:text-white hover:bg-white/5";
+                }
+              }
+              return (
+                <button
+                  key={tabItem.id}
+                  onClick={() => setActiveFooterTab(activeFooterTab === tabItem.id ? null : (tabItem.id as any))}
+                  className={`flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2 px-3 sm:px-4 rounded-xl text-[11px] font-bold transition-all duration-300 cursor-pointer border ${btnClass}`}
+                >
+                  {tabItem.icon}
+                  <span>{tabItem.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {activeFooterTab && (
+            <button
+              onClick={() => setActiveFooterTab(null)}
+              className={`px-3 py-2 rounded-xl text-[11px] font-mono font-bold transition-all cursor-pointer flex items-center justify-center gap-1 border ${
+                themeMode === "sunshine"
+                  ? "bg-white/20 hover:bg-white/60 border-amber-900/10 text-amber-900/60 hover:text-amber-950"
+                  : themeMode === "park"
+                  ? "bg-white/10 hover:bg-white/40 border-emerald-900/10 text-emerald-900/60 hover:text-emerald-950"
+                  : "bg-neutral-950/40 hover:bg-neutral-950/85 text-white/30 hover:text-white/80 border-white/5"
+              }`}
+              title="Alle Zusatz-Werkzeuge einklappen, um Fokus auf Haupttuner zu maximieren"
+            >
+              <X size={12} />
+              <span className="sm:hidden md:inline">Einklappen</span>
+            </button>
+          )}
+        </div>
+
+        {/* Always Visible: HIGH-VISIBILITY HZ + CENTS DETAILS DASHBOARD CARD */}
+        <div id="calibration-details-dashboard" className="mb-6 bg-neutral-900/40 border border-white/5 rounded-2xl p-4 sm:p-5 flex justify-around items-center text-center font-mono select-none shadow-lg animate-fade-in">
+          <div className="flex-1 flex flex-col items-center">
+            <span className="text-white/25 block text-[9px] uppercase tracking-[0.2em] mb-1.5 font-bold">HZ-FREQUENZ 📊</span>
+            <span id="live-hertz-frequency" className={`text-base sm:text-lg font-bold tracking-widest uppercase transition-colors ${
+              hasSignal && isInTune ? "text-green-500" : "text-white/80"
+            }`}>
+              {hasSignal 
+                ? `${frequency.toFixed(2)} Hz` 
+                : playingStringNum !== null 
+                  ? `${tunedGuitarStrings.find(s => s.number === playingStringNum)?.frequency.toFixed(2)} Hz` 
+                  : "---"
+              }
+            </span>
+          </div>
+
+          <div className="w-[1px] bg-white/10 self-stretch my-1" />
+
+          <div className="flex-1 flex flex-col items-center">
+            <span className="text-white/25 block text-[9px] uppercase tracking-[0.2em] mb-1.5 font-bold">ABWEICHUNG 🎯</span>
+            <span id="live-cents-deviation" className={`text-xs sm:text-sm font-sans font-extrabold tracking-wider transition-colors uppercase ${
+              hasSignal 
+                ? isInTune 
+                  ? "text-green-400" 
+                  : Math.abs(centsDiff) <= 15 
+                    ? "text-yellow-400" 
+                    : "text-red-400" 
+                : "text-white/30"
+            }`}>
+              {hasSignal 
+                ? centsDiff === 0 
+                  ? "STIMMT PERFEKT! 🤘" 
+                  : `${Math.abs(centsDiff).toFixed(1)} Cent ${centsDiff > 0 ? "zu stramm" : "zu schlaff"}`
+                : playingStringNum !== null 
+                  ? "REFERENZTON" 
+                  : isListening 
+                    ? "HÖRE ZU..." 
+                    : "STUMM"
+              }
+            </span>
+          </div>
+        </div>
+
+        {activeFooterTab === "chord" && (
+          <div className="animate-fade-in">
+            {/* ==================== INTERACTIVE CHORD DISPLAY ==================== */}
+            <div id="chord-display-container" className="bg-neutral-900/40 border border-white/5 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-stretch gap-6 justify-between shadow-xl">
           <div className="flex-1 flex flex-col w-full justify-between">
             <div>
               <div className="flex justify-between items-center mb-4">
@@ -3875,9 +4257,13 @@ export default function App() {
             </div>
           )}
         </div>
+      </div>
+    )}
 
-        {/* ----------------- GORGEOUS HORIZONTAL FULL NECK PENTATONIC VISUALIZER ----------------- */}
-        <div id="horizontal-full-neck-visualizer" className="mt-6 bg-neutral-900/40 border border-white/5 rounded-2xl p-4 sm:p-5 flex flex-col gap-3 shadow-xl select-none animate-fade-in relative z-10">
+        {activeFooterTab === "fretboard" && (
+          <div className="animate-fade-in">
+            {/* ----------------- GORGEOUS HORIZONTAL FULL NECK PENTATONIC VISUALIZER ----------------- */}
+            <div id="horizontal-full-neck-visualizer" className="mt-6 bg-neutral-900/40 border border-white/5 rounded-2xl p-4 sm:p-5 flex flex-col gap-3 shadow-xl select-none animate-fade-in relative z-10">
           <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center border-b border-white/5 pb-2.5">
             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
               <div>
@@ -4280,161 +4666,256 @@ export default function App() {
           })}
         </div>
 
-        {/* Optional Release filter button when manual focus lock on a single string is enabled */}
-        {targetStringLock !== null && (
-          <div className="flex justify-center mt-4">
-            <button
-               id="clear-neck-filter"
-               onClick={() => setTargetStringLock(null)}
-               className="px-3 py-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 border border-white/10 rounded-full text-[10px] font-mono uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer"
-            >
-              <span>Saiten-Fokus für Saite {targetStringLock} wegschmeißen</span>
-              <RefreshCw size={9} />
-            </button>
+            {/* Optional Release filter button when manual focus lock on a single string is enabled */}
+            {targetStringLock !== null && (
+              <div className="flex justify-center mt-4">
+                <button
+                   id="clear-neck-filter"
+                   onClick={() => setTargetStringLock(null)}
+                   className="px-3 py-1 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 border border-white/10 rounded-full text-[10px] font-mono uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <span>Saiten-Fokus für Saite {targetStringLock} wegschmeißen</span>
+                  <RefreshCw size={9} />
+                </button>
+              </div>
+            )}
           </div>
         )}
 
-
-
-        {/* Swapped-in: HZ + CENTS DETAILS DASHBOARD CARD */}
-        <div id="calibration-details-dashboard" className="bg-neutral-900/40 border border-white/5 rounded-2xl p-4 sm:p-5 flex justify-around items-center text-center font-mono select-none shadow-lg animate-fade-in">
-          <div className="flex-1 flex flex-col items-center">
-            <span className="text-white/25 block text-[9px] uppercase tracking-[0.2em] mb-1.5 font-bold">HZ-FREQUENZ 📊</span>
-            <span id="live-hertz-frequency" className={`text-base sm:text-lg font-bold tracking-widest uppercase transition-colors ${
-              hasSignal && isInTune ? "text-green-500" : "text-white/80"
-            }`}>
-              {hasSignal 
-                ? `${frequency.toFixed(2)} Hz` 
-                : playingStringNum !== null 
-                  ? `${tunedGuitarStrings.find(s => s.number === playingStringNum)?.frequency.toFixed(2)} Hz` 
-                  : "---"
-              }
-            </span>
-          </div>
-
-          <div className="w-[1px] bg-white/10 self-stretch my-1" />
-
-          <div className="flex-1 flex flex-col items-center">
-            <span className="text-white/25 block text-[9px] uppercase tracking-[0.2em] mb-1.5 font-bold">ABWEICHUNG 🎯</span>
-            <span id="live-cents-deviation" className={`text-xs sm:text-sm font-sans font-extrabold tracking-wider transition-colors uppercase ${
-              hasSignal 
-                ? isInTune 
-                  ? "text-green-400" 
-                  : Math.abs(centsDiff) <= 15 
-                    ? "text-yellow-400" 
-                    : "text-red-400" 
-                : "text-white/30"
-            }`}>
-              {hasSignal 
-                ? centsDiff === 0 
-                  ? "STIMMT PERFEKT! 🤘" 
-                  : `${Math.abs(centsDiff).toFixed(1)} Cent ${centsDiff > 0 ? "zu stramm" : "zu schlaff"}`
-                : playingStringNum !== null 
-                  ? "REFERENZTON" 
-                  : isListening 
-                    ? "HÖRE ZU..." 
-                    : "STUMM"
-              }
-            </span>
-          </div>
-        </div>
-
-        {/* ==================== WHATSAPP FEEDBACK AREA ==================== */}
-        <div id="whatsapp-feedback-card" className="mt-6 bg-neutral-900/40 border border-white/5 rounded-2xl p-5 sm:p-6 flex flex-col gap-4 shadow-xl select-none animate-fade-in relative z-20">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
-            <div>
+        {/* ==================== PRACTICE METRONOME & WHATSAPP FEEDBACK GRID ==================== */}
+        {activeFooterTab === "practice" && (
+          <div className="animate-fade-in">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+          
+          {/* ==================== PRACTICE METRONOME CARD ==================== */}
+          <div id="metronome-practice-card" className="bg-neutral-900/40 border border-white/5 rounded-2xl p-5 sm:p-6 flex flex-col justify-between gap-4 shadow-xl select-none animate-fade-in relative z-20">
+            <div className="border-b border-white/5 pb-3">
               <h4 className="text-xs uppercase tracking-[0.2em] text-white/40 font-bold flex items-center gap-1.5">
-                <span className="text-sm">💬</span>
-                <span>Feedback & Vorschläge / Recommendations</span>
+                <span className="text-sm">⏱️</span>
+                <span>Präzisions-Metronom / Beat Trainer</span>
               </h4>
               <p className="text-[10px] text-white/20 mt-1 font-mono">
-                Wähle eine Vorlage oder tippe eigenes Feedback ein, um den grünen WhatsApp-Button freizuschalten.
+                Pulsgeber für perfektes Timing beim Üben. Tippe das Tempo oder nutze den Regler.
               </p>
+            </div>
+
+            {/* Quick BPM Control Panel */}
+            <div className="flex flex-col items-center gap-3 bg-black/30 p-4 rounded-xl border border-white/5">
+              <div className="flex items-baseline gap-2.5">
+                <span className="text-[10px] text-white/40 font-mono tracking-widest uppercase mb-1">Tempo:</span>
+                <span className="text-3xl font-mono font-black tracking-tight text-amber-400">
+                  {metronomeBpm}
+                </span>
+                <span className="text-[10px] text-white/40 font-mono">BPM</span>
+              </div>
+
+              {/* Slider Block */}
+              <div className="w-full flex items-center gap-3 px-1">
+                <span className="text-[9px] font-mono text-white/25">40</span>
+                <input
+                  type="range"
+                  min="40"
+                  max="240"
+                  value={metronomeBpm}
+                  onChange={(e) => setMetronomeBpm(parseInt(e.target.value))}
+                  className="flex-1 accent-amber-500 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                />
+                <span className="text-[9px] font-mono text-white/25">240</span>
+              </div>
+
+              {/* BPM adjust shortcuts */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setMetronomeBpm(prev => Math.max(40, prev - 5))}
+                  className="px-2 py-1 text-[9px] font-mono font-semibold bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded text-white/60 hover:text-white cursor-pointer"
+                >
+                  -5
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMetronomeBpm(prev => Math.max(40, prev - 1))}
+                  className="px-2 py-1 text-[9px] font-mono font-semibold bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded text-white/60 hover:text-white cursor-pointer"
+                >
+                  -1
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMetronomeBpm(prev => Math.min(240, prev + 1))}
+                  className="px-2 py-1 text-[9px] font-mono font-semibold bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded text-white/60 hover:text-white cursor-pointer"
+                >
+                  +1
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMetronomeBpm(prev => Math.min(240, prev + 5))}
+                  className="px-2 py-1 text-[9px] font-mono font-semibold bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded text-white/60 hover:text-white cursor-pointer"
+                >
+                  +5
+                </button>
+              </div>
+            </div>
+
+            {/* Visual Beat Track + Interactive Trigger */}
+            <div className="flex items-center justify-between gap-4 pt-1">
+              {/* Trigger Metronome Buttons */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsMetronomePlaying(!isMetronomePlaying)}
+                  className={`px-5 py-2.5 rounded-xl text-xs font-mono font-black uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center gap-1.5 ${
+                    isMetronomePlaying
+                      ? "bg-red-500 hover:bg-red-400 text-neutral-950 shadow-[0_4px_14px_rgba(239,68,68,0.25)] active:scale-[0.98]"
+                      : "bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-[0_4px_14px_rgba(245,158,11,0.25)] active:scale-[0.98]"
+                  }`}
+                >
+                  {isMetronomePlaying ? (
+                    <>
+                      <Pause size={12} className="fill-current" />
+                      <span>STOP</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play size={12} className="fill-current ml-0.5" />
+                      <span>START</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleTapTempo}
+                  className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/15 text-white/80 active:scale-95 transition-all rounded-xl text-xs font-mono font-bold tracking-wide cursor-pointer"
+                  title="Tippe das Tempo im Beat, um das BPM-Zahl automatisch zu ermitteln"
+                >
+                  ⏳ TAP
+                </button>
+              </div>
+
+              {/* Visual Beat Dot Row */}
+              <div className="flex items-center gap-1.5 bg-black/20 px-3 py-2 rounded-xl border border-white/5">
+                {[1, 2, 3, 4].map((b) => {
+                  const isActive = metronomeBeat === b;
+                  return (
+                    <div
+                      key={b}
+                      className={`relative w-6 h-6 rounded-md border transition-all duration-100 flex items-center justify-center ${
+                        isActive
+                          ? b === 1
+                            ? "bg-red-500 border-red-400 scale-110 shadow-[0_0_8px_#ef4444]"
+                            : "bg-amber-500 border-amber-400 scale-110 shadow-[0_0_8px_#f59e0b]"
+                          : "bg-neutral-950/45 border-white/10"
+                      }`}
+                    >
+                      <span className={`text-[9px] font-bold font-mono transition-colors flex items-center justify-center ${isActive ? "text-neutral-950" : "text-white/40"}`}>
+                        {b}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          {/* Feedback Presets Buttons */}
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setWhatsappMessage("Hallo! Der Tuner ist super präzise, besonders der neue 12-Saiter Modus funktioniert echt hervorragend! 🎸⭐")}
-              className="px-3 py-1.5 rounded-full bg-emerald-950/40 hover:bg-emerald-950/60 border border-emerald-500/20 hover:border-emerald-500/45 text-emerald-300 text-[10px] font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1"
-            >
-              <span>👍 Super präzise (Gut)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setWhatsappMessage("Hi! Ich würde mir als Verbesserung einen integrierten Drum-Groove, ein Metronom und mehr Stimmungs-Presets wie Drop-D oder Open-G wünschen! 🥁")}
-              className="px-3 py-1.5 rounded-full bg-blue-950/40 hover:bg-blue-950/60 border border-blue-500/20 hover:border-blue-500/45 text-blue-300 text-[10px] font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1"
-            >
-              <span>💡 Verbesserungsvorschläge</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setWhatsappMessage("Hallo, ich habe festgestellt, dass der Tuner manchmal bei extrem tiefen Bassfrequenzen oder Nebengeräuschen etwas unruhig reagiert. 🔍")}
-              className="px-3 py-1.5 rounded-full bg-red-950/40 hover:bg-red-950/60 border border-red-500/20 hover:border-red-500/45 text-red-300 text-[10px] font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1"
-            >
-              <span>👎 Optimierungspotenzial (Kritik)</span>
-            </button>
-          </div>
+          {/* ==================== WHATSAPP FEEDBACK AREA ==================== */}
+          <div id="whatsapp-feedback-card" className="bg-neutral-900/40 border border-white/5 rounded-2xl p-5 sm:p-6 flex flex-col justify-between gap-4 shadow-xl select-none animate-fade-in relative z-20">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
+              <div>
+                <h4 className="text-xs uppercase tracking-[0.2em] text-white/40 font-bold flex items-center gap-1.5">
+                  <span className="text-sm">💬</span>
+                  <span>Feedback & Vorschläge / Recommendations</span>
+                </h4>
+                <p className="text-[10px] text-white/20 mt-1 font-mono">
+                  Wähle eine Vorlage oder tippe eigenes Feedback ein, um den grünen WhatsApp-Button freizuschalten.
+                </p>
+              </div>
+            </div>
 
-          {/* Simple textbox preview and manual editing */}
-          <div className="relative">
-            <textarea
-              value={whatsappMessage}
-              onChange={(e) => setWhatsappMessage(e.target.value)}
-              placeholder="Schreibe dein Feedback hier hinein oder wähle oben eines der Presets aus..."
-              className="w-full h-24 bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-all font-sans resize-none"
-            />
-            {whatsappMessage.trim() && (
+            {/* Feedback Presets Buttons */}
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setWhatsappMessage("")}
-                className="absolute right-2.5 bottom-2.5 text-[9px] font-mono text-white/40 hover:text-white/80 bg-white/5 hover:bg-white/10 px-2 py-1 rounded transition-all cursor-pointer border border-white/5"
+                onClick={() => setWhatsappMessage("Hallo! Der Tuner ist super präzise, besonders der neue 12-Saiter Modus funktioniert echt hervorragend! 🎸⭐")}
+                className="px-3 py-1.5 rounded-full bg-emerald-950/40 hover:bg-emerald-950/60 border border-emerald-500/20 hover:border-emerald-500/45 text-emerald-300 text-[10px] font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1"
               >
-                Löschen
+                <span>👍 Super präzise (Gut)</span>
               </button>
-            )}
-          </div>
+              <button
+                type="button"
+                onClick={() => setWhatsappMessage("Hi! Ich würde mir als Verbesserung einen integrierten Drum-Groove, ein Metronom und mehr Stimmungs-Presets wie Drop-D oder Open-G wünschen! 🥁")}
+                className="px-3 py-1.5 rounded-full bg-blue-950/40 hover:bg-blue-950/60 border border-blue-500/20 hover:border-blue-500/45 text-blue-300 text-[10px] font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1"
+              >
+                <span>💡 Verbesserungsvorschläge</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setWhatsappMessage("Hallo, ich habe festgestellt, dass der Tuner manchmal bei extrem tiefen Bassfrequenzen oder Nebengeräuschen etwas unruhig reagiert. 🔍")}
+                className="px-3 py-1.5 rounded-full bg-red-950/40 hover:bg-red-950/60 border border-red-500/20 hover:border-red-500/45 text-red-300 text-[10px] font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1"
+              >
+                <span>👎 Optimierungspotenzial (Kritik)</span>
+              </button>
+            </div>
 
-          {/* Senden Button Row */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
-            <div className="text-[10px] font-mono leading-none">
-              {whatsappMessage.trim() ? (
-                <span className="text-emerald-400 flex items-center gap-1.5 font-bold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse shadow-[0_0_8px_#34d399]" />
-                  Bereit zum Abschicken an +43 650 8278461 📞
-                </span>
-              ) : (
-                <span className="text-white/30 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white/10 inline-block" />
-                  Bitte Feedback eingeben oder ein Preset anklicken...
-                </span>
+            {/* Simple textbox preview and manual editing */}
+            <div className="relative">
+              <textarea
+                value={whatsappMessage}
+                onChange={(e) => setWhatsappMessage(e.target.value)}
+                placeholder="Schreibe dein Feedback hier hinein..."
+                className="w-full h-20 bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-all font-sans resize-none"
+              />
+              {whatsappMessage.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setWhatsappMessage("")}
+                  className="absolute right-2.5 bottom-2.5 text-[9px] font-mono text-white/40 hover:text-white/80 bg-white/5 hover:bg-white/10 px-2 py-1 rounded transition-all cursor-pointer border border-white/5"
+                >
+                  Löschen
+                </button>
               )}
             </div>
 
-            <a
-              href={whatsappMessage.trim() ? `https://wa.me/436508278461?text=${encodeURIComponent(whatsappMessage.trim())}` : undefined}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => {
-                if (!whatsappMessage.trim()) {
-                  e.preventDefault();
-                }
-              }}
-              className={`w-full sm:w-auto px-6 py-2.5 rounded-xl font-mono text-xs font-black uppercase tracking-wider transition-all shadow-md select-none flex items-center justify-center gap-2 text-center pointer-events-auto ${
-                whatsappMessage.trim()
-                  ? "bg-emerald-500 hover:bg-emerald-400 text-neutral-950 cursor-pointer shadow-[0_4px_14px_rgba(16,185,129,0.3)] active:scale-[0.98]"
-                  : "bg-neutral-800 text-white/20 border border-white/5 cursor-not-allowed opacity-40"
-              }`}
-            >
-              <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12.012 3c-4.832 0-8.75 3.917-8.75 8.75 0 1.543.4 3.012 1.137 4.293L3.13 20.87a.498.498 0 0 0 .614.614l4.827-1.269a8.681 8.681 0 0 0 3.44.734c4.833 0 8.75-3.917 8.75-8.75S16.845 3 12.012 3zm0 16.035c-1.464 0-2.833-.42-4.004-1.127a.5.5 0 0 0-.44-.04l-3.344.879.879-3.344a.5.5 0 0 0-.04-.44 7.29 7.29 0 0 1-1.127-4.004c0-4.041 3.284-7.325 7.325-7.325s7.325 3.284 7.325 7.325-3.284 7.325-7.325 7.325z" />
-              </svg>
-              <span>Senden / Send Message</span>
-            </a>
+            {/* Senden Button Row */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+              <div className="text-[10px] font-mono leading-none">
+                {whatsappMessage.trim() ? (
+                  <span className="text-emerald-400 flex items-center gap-1.5 font-bold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse shadow-[0_0_8px_#34d399]" />
+                    Bereit! 📞
+                  </span>
+                ) : (
+                  <span className="text-white/30 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white/10 inline-block" />
+                    Preset auswählen...
+                  </span>
+                )}
+              </div>
+
+              <a
+                href={whatsappMessage.trim() ? `https://wa.me/436508278461?text=${encodeURIComponent(whatsappMessage.trim())}` : undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  if (!whatsappMessage.trim()) {
+                    e.preventDefault();
+                  }
+                }}
+                className={`w-full sm:w-auto px-5 py-2 rounded-xl font-mono text-xs font-black uppercase tracking-wider transition-all shadow-md select-none flex items-center justify-center gap-1.5 text-center pointer-events-auto ${
+                  whatsappMessage.trim()
+                    ? "bg-emerald-500 hover:bg-emerald-400 text-neutral-950 cursor-pointer shadow-[0_4px_14px_rgba(16,185,129,0.3)] active:scale-[0.98]"
+                    : "bg-neutral-800 text-white/20 border border-white/5 cursor-not-allowed opacity-40"
+                }`}
+              >
+                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12.012 3c-4.832 0-8.75 3.917-8.75 8.75 0 1.543.4 3.012 1.137 4.293L3.13 20.87a.498.498 0 0 0 .614.614l4.827-1.269a8.681 8.681 0 0 0 3.44.734c4.833 0 8.75-3.917 8.75-8.75S16.845 3 12.012 3zm0 16.035c-1.464 0-2.833-.42-4.004-1.127a.5.5 0 0 0-.44-.04l-3.344.879.879-3.344a.5.5 0 0 0-.04-.44 7.29 7.29 0 0 1-1.127-4.004c0-4.041 3.284-7.325 7.325-7.325s7.325 3.284 7.325 7.325-3.284 7.325-7.325 7.325z" />
+                </svg>
+                <span>Senden</span>
+              </a>
+            </div>
           </div>
         </div>
+      </div>
+    )}
 
       </section>
       </div>
