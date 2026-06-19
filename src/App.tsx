@@ -20,7 +20,7 @@
  */
 
 import { useEffect, useRef, useState, CSSProperties } from "react";
-import { Mic, MicOff, Volume2, Info, Settings, Zap, CheckCircle2, RefreshCw, Target, Radio, Play, Pause, ChevronDown, X, RotateCw, Sun, SunDim, Trees, Timer, BookOpen } from "lucide-react";
+import { Mic, MicOff, Volume2, Info, Settings, Zap, CheckCircle2, RefreshCw, Target, Radio, Play, Pause, ChevronDown, X, RotateCw, Sun, SunDim, Trees, Timer, BookOpen, Compass } from "lucide-react";
 import { STANDARD_GUITAR_STRINGS, UKULELE_STRINGS, TWELVE_STRING_GUITAR_STRINGS, GuitarString } from "./types";
 import { detectGuitarPitch, findClosestGuitarString, findClosestChromaticNote } from "./utils/audioProcessor";
 
@@ -438,7 +438,18 @@ export default function App() {
   }, [tunedGuitarStrings]);
 
   const [isModusDropdownOpen, setIsModusDropdownOpen] = useState<boolean>(false);
-  const [activeFooterTab, setActiveFooterTab] = useState<"chord" | "fretboard" | "practice" | null>(null);
+  const [isHarmonicsExpanded, setIsHarmonicsExpanded] = useState<boolean>(false);
+  const [tuningChangeVibrate, setTuningChangeVibrate] = useState<boolean>(false);
+
+  useEffect(() => {
+    setTuningChangeVibrate(true);
+    const timer = setTimeout(() => {
+      setTuningChangeVibrate(false);
+    }, 1100);
+    return () => clearTimeout(timer);
+  }, [selectedTuningId, selectedInstrumentId]);
+
+  const [activeFooterTab, setActiveFooterTab] = useState<"chord" | "fretboard" | "practice" | "circleOfFifths" | null>(null);
   const [displayMode, setDisplayMode] = useState<"soundhole" | "led-bar">("soundhole");
   const [isDisplayDropdownOpen, setIsDisplayDropdownOpen] = useState<boolean>(false);
   const [soundholeRotation, setSoundholeRotation] = useState<number>(0);
@@ -452,6 +463,7 @@ export default function App() {
 
   const [cagedRoot, setCagedRoot] = useState<string>("D");
   const [cagedShape, setCagedShape] = useState<string>("A");
+  const [selectedCircleKey, setSelectedCircleKey] = useState<number>(0); // 0 = C Major / A Minor
 
   // Extended Full Screen modal and scale auto play states
   const [isExtendedNeckModalOpen, setIsExtendedNeckModalOpen] = useState<boolean>(false);
@@ -2272,102 +2284,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Tuning Preset Selector Segment */}
-        <div className="relative font-sans z-50 animate-none flex-1 md:flex-initial min-w-0" ref={tuningDropdownRef}>
-          <button 
-            id="stimm-preset-dropdown-btn"
-            onClick={() => setIsTuningDropdownOpen(!isTuningDropdownOpen)}
-            className="w-full flex items-center justify-center sm:justify-start bg-neutral-900/50 border border-white/10 rounded-xl hover:bg-neutral-800/45 hover:border-white/20 active:scale-95 transition-all text-left shadow-lg cursor-pointer group px-1 sm:px-3.5 py-1.5 gap-1 sm:gap-2.5 text-white/85"
-            title="Wähle Stimmungs-Voreinstellung"
-          >
-            <div className="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-lg bg-neutral-950/80 border border-white/5 transition-all">
-              <Zap size={12} className="text-amber-400" />
-            </div>
-            <div className="flex flex-col leading-tight pr-1 min-w-0">
-              <span className="text-[8px] uppercase tracking-[0.12em] sm:tracking-[0.18em] text-white/45 font-bold mb-0.5 truncate">
-                Stimmung
-              </span>
-              <span className="text-[10px] sm:text-[11px] font-mono font-bold uppercase flex items-center gap-1 min-w-0 truncate">
-                {selectedInstrumentId === "ukulele" ? (
-                  UKULELE_TUNING_PRESETS.find(p => p.id === selectedTuningId)?.name.split(" ")[0] || "Standard"
-                ) : selectedInstrumentId === "guitar12" ? (
-                  "Standard"
-                ) : (
-                  GUITAR_TUNING_PRESETS.find(p => p.id === selectedTuningId)?.name.split(" ")[0] || "Standard"
-                )}
-                <ChevronDown size={11} className={`text-white/40 transition-transform duration-200 ${isTuningDropdownOpen ? "rotate-180" : ""}`} />
-              </span>
-            </div>
-          </button>
-
-          {isTuningDropdownOpen && (
-            <div className="absolute left-1/2 -translate-x-1/2 md:left-auto md:right-0 md:translate-x-0 mt-2 w-64 bg-neutral-900/95 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 animate-fade-in pointer-events-auto py-1.5 px-1.5 flex flex-col gap-1 text-left">
-              <div className="px-2.5 py-1 border-b border-white/5 mb-1 flex items-center justify-between">
-                <span className="text-[8px] uppercase tracking-wider text-white/40 font-bold">
-                  Stimmung wählen
-                </span>
-                {selectedInstrumentId === "guitar12" && (
-                  <span className="text-[7.5px] uppercase font-mono px-1.5 py-[1px] rounded bg-white/5 text-white/40 border border-white/10">
-                    Fixiert
-                  </span>
-                )}
-              </div>
-              
-              {selectedInstrumentId === "guitar12" ? (
-                <div className="px-3 py-2 text-xs italic text-white/35 font-sans">
-                  Der 12-Saiter Modus läuft standardmäßig in doppelten Oktaven.
-                </div>
-              ) : selectedInstrumentId === "ukulele" ? (
-                UKULELE_TUNING_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    onClick={() => {
-                      setSelectedTuningId(preset.id);
-                      setIsTuningDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center justify-between cursor-pointer ${
-                      selectedTuningId === preset.id
-                        ? "bg-amber-500/15 text-amber-400 font-extrabold border border-amber-500/20"
-                        : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
-                    }`}
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-bold font-sans text-white/80">{preset.name}</span>
-                      <span className="text-[8.5px] text-white/35">{preset.pitches.join(" • ")}</span>
-                    </div>
-                    {selectedTuningId === preset.id && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                    )}
-                  </button>
-                ))
-              ) : (
-                GUITAR_TUNING_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    onClick={() => {
-                      setSelectedTuningId(preset.id);
-                      setIsTuningDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center justify-between cursor-pointer ${
-                      selectedTuningId === preset.id
-                        ? "bg-amber-500/15 text-amber-400 font-extrabold border border-amber-500/20"
-                        : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
-                    }`}
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-bold font-sans text-white/80">{preset.name}</span>
-                      <span className="text-[8.5px] text-white/35">{preset.pitches.join(" • ")}</span>
-                    </div>
-                    {selectedTuningId === preset.id && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                    )}
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-
         {/* Lock / Automatic Mode Segment */}
         <div className="relative font-sans z-50 animate-none flex-1 md:flex-initial min-w-0" ref={modusDropdownRef}>
           <button 
@@ -2545,6 +2461,102 @@ export default function App() {
                   );
                 })}
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Tuning Preset Selector Segment */}
+        <div className="relative font-sans z-50 animate-none flex-1 md:flex-initial min-w-0" ref={tuningDropdownRef}>
+          <button 
+            id="stimm-preset-dropdown-btn"
+            onClick={() => setIsTuningDropdownOpen(!isTuningDropdownOpen)}
+            className="w-full flex items-center justify-center sm:justify-start bg-neutral-900/50 border border-white/10 rounded-xl hover:bg-neutral-800/45 hover:border-white/20 active:scale-95 transition-all text-left shadow-lg cursor-pointer group px-1 sm:px-3.5 py-1.5 gap-1 sm:gap-2.5 text-white/85"
+            title="Wähle Stimmungs-Voreinstellung"
+          >
+            <div className="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-lg bg-neutral-950/80 border border-white/5 transition-all">
+              <Zap size={12} className="text-amber-400" />
+            </div>
+            <div className="flex flex-col leading-tight pr-1 min-w-0">
+              <span className="text-[8px] uppercase tracking-[0.12em] sm:tracking-[0.18em] text-white/45 font-bold mb-0.5 truncate">
+                Stimmung
+              </span>
+              <span className="text-[10px] sm:text-[11px] font-mono font-bold uppercase flex items-center gap-1 min-w-0 truncate">
+                {selectedInstrumentId === "ukulele" ? (
+                  UKULELE_TUNING_PRESETS.find(p => p.id === selectedTuningId)?.name.split(" ")[0] || "Standard"
+                ) : selectedInstrumentId === "guitar12" ? (
+                  "Standard"
+                ) : (
+                  GUITAR_TUNING_PRESETS.find(p => p.id === selectedTuningId)?.name.split(" ")[0] || "Standard"
+                )}
+                <ChevronDown size={11} className={`text-white/40 transition-transform duration-200 ${isTuningDropdownOpen ? "rotate-180" : ""}`} />
+              </span>
+            </div>
+          </button>
+
+          {isTuningDropdownOpen && (
+            <div className="absolute left-1/2 -translate-x-1/2 md:left-auto md:right-0 md:translate-x-0 mt-2 w-64 bg-neutral-900/95 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 animate-fade-in pointer-events-auto py-1.5 px-1.5 flex flex-col gap-1 text-left">
+              <div className="px-2.5 py-1 border-b border-white/5 mb-1 flex items-center justify-between">
+                <span className="text-[8px] uppercase tracking-wider text-white/40 font-bold">
+                  Stimmung wählen
+                </span>
+                {selectedInstrumentId === "guitar12" && (
+                  <span className="text-[7.5px] uppercase font-mono px-1.5 py-[1px] rounded bg-white/5 text-white/40 border border-white/10">
+                    Fixiert
+                  </span>
+                )}
+              </div>
+              
+              {selectedInstrumentId === "guitar12" ? (
+                <div className="px-3 py-2 text-xs italic text-white/35 font-sans">
+                  Der 12-Saiter Modus läuft standardmäßig in doppelten Oktaven.
+                </div>
+              ) : selectedInstrumentId === "ukulele" ? (
+                UKULELE_TUNING_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    onClick={() => {
+                      setSelectedTuningId(preset.id);
+                      setIsTuningDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center justify-between cursor-pointer ${
+                      selectedTuningId === preset.id
+                        ? "bg-amber-500/15 text-amber-400 font-extrabold border border-amber-500/20"
+                        : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
+                    }`}
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-bold font-sans text-white/80">{preset.name}</span>
+                      <span className="text-[8.5px] text-white/35">{preset.pitches.join(" • ")}</span>
+                    </div>
+                    {selectedTuningId === preset.id && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    )}
+                  </button>
+                ))
+              ) : (
+                GUITAR_TUNING_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    onClick={() => {
+                      setSelectedTuningId(preset.id);
+                      setIsTuningDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center justify-between cursor-pointer ${
+                      selectedTuningId === preset.id
+                        ? "bg-amber-500/15 text-amber-400 font-extrabold border border-amber-500/20"
+                        : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
+                    }`}
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-bold font-sans text-white/80">{preset.name}</span>
+                      <span className="text-[8.5px] text-white/35">{preset.pitches.join(" • ")}</span>
+                    </div>
+                    {selectedTuningId === preset.id && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    )}
+                  </button>
+                ))
+              )}
             </div>
           )}
         </div>
@@ -2777,14 +2789,22 @@ export default function App() {
           }
 
           /* Dropdown panel backgrounds */
-          .sunshine-mode .absolute.right-0 {
+          .sunshine-mode .absolute.left-1\\/2,
+          .sunshine-mode .absolute.right-0,
+          .sunshine-mode .bg-neutral-900\\/95,
+          .sunshine-mode .bg-neutral-950\\/95 {
             background-color: #FAF5DC !important;
             border-color: #E6D3A0 !important;
+            color: #302205 !important;
             box-shadow: 0 10px 30px rgba(139, 90, 43, 0.15) !important;
           }
-          .park-mode .absolute.right-0 {
+          .park-mode .absolute.left-1\\/2,
+          .park-mode .absolute.right-0,
+          .park-mode .bg-neutral-900\\/95,
+          .park-mode .bg-neutral-950\\/95 {
             background-color: #BFE3BA !important;
             border-color: #95BD90 !important;
+            color: #061A08 !important;
             box-shadow: 0 10px 30px rgba(9, 34, 13, 0.15) !important;
           }
 
@@ -3238,7 +3258,8 @@ export default function App() {
                         num: str.number,
                         label: str.note,
                         pitch: str.pitch,
-                        thickness
+                        thickness,
+                        frequency: str.frequency
                       };
                     });
 
@@ -3261,7 +3282,7 @@ export default function App() {
                             {orderedCourse.map((str) => {
                               const isDetected = hasSignal && closestString?.number === str.num;
                               const isBrummtonActive = playingStringNum === str.num;
-                              const shouldVibrate = isDetected || isBrummtonActive;
+                              const shouldVibrate = isDetected || isBrummtonActive || tuningChangeVibrate;
 
                               let stringColor = "bg-gradient-to-r from-zinc-500 via-zinc-400 to-zinc-600 shadow-[1px_0_1px_rgba(0,0,0,0.4)]";
                               if (shouldVibrate) {
@@ -3272,21 +3293,22 @@ export default function App() {
                               const isBassLimit = str.num === tunedGuitarStrings.length;
 
                               return (
-                                <div key={str.num} className="h-full flex flex-col items-center relative opacity-85">
+                                <div key={`${selectedInstrumentId}-${selectedTuningId}-${str.num}`} className="h-full flex flex-col items-center relative opacity-85">
                                   {/* Label at bottom with high-contrast visibility and inverse rotation, placed below needle center */}
                                   <div 
                                     className={`absolute top-[80%] font-mono text-[9px] sm:text-[10px] font-bold transition-all duration-300 z-20 ${
                                       isDetected 
                                         ? "text-yellow-400 font-extrabold scale-110 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]" 
                                         : isTrebleLimit 
-                                        ? "text-sky-400 font-extrabold drop-shadow-[0_0_4px_rgba(56,189,248,0.5)]" 
+                                        ? "text-sky-450 font-extrabold drop-shadow-[0_0_4px_rgba(56,189,248,0.5)]" 
                                         : isBassLimit 
-                                        ? "text-orange-400 font-extrabold drop-shadow-[0_0_4px_rgba(251,146,60,0.5)]" 
+                                        ? "text-orange-450 font-extrabold drop-shadow-[0_0_4px_rgba(251,146,60,0.5)]" 
                                         : "text-amber-100/75 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
                                     }`}
                                     style={{ transform: `rotate(${-soundholeRotation}deg)` }}
                                   >
-                                    {str.pitch}
+                                    <span className="block text-center tracking-tighter">{str.pitch}</span>
+                                    <span className="block text-[6.5px] text-white/45 font-normal mt-[1.5px]">{str.frequency ? `${str.frequency.toFixed(1)}` : ""}</span>
                                   </div>
 
                                   <div 
@@ -3306,7 +3328,7 @@ export default function App() {
                       // Check if manual audio bummton is playing this string
                       const isBrummtonActive = playingStringNum === str.num;
 
-                      const shouldVibrate = isDetected || isBrummtonActive;
+                      const shouldVibrate = isDetected || isBrummtonActive || tuningChangeVibrate;
                       
                       let stringColor = "bg-gradient-to-r from-zinc-500 via-zinc-400 to-zinc-600 shadow-[1px_0_1px_rgba(0,0,0,0.4)]";
                       if (shouldVibrate) {
@@ -3318,21 +3340,22 @@ export default function App() {
                       const isBassLimit = str.num === tunedGuitarStrings.length;
 
                       return (
-                        <div key={str.num} className="h-full flex flex-col items-center relative opacity-80">
+                        <div key={`${selectedInstrumentId}-${selectedTuningId}-${str.num}`} className="h-full flex flex-col items-center relative opacity-80">
                           {/* Label at bottom with high-contrast visibility and inverse rotation, placed below needle center */}
                           <div 
                             className={`absolute top-[80%] font-mono text-[9px] sm:text-[10px] font-bold transition-all duration-300 z-20 ${
                               isDetected 
                                 ? "text-yellow-400 font-extrabold scale-110 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]" 
                                 : isTrebleLimit 
-                                ? "text-sky-400 font-extrabold drop-shadow-[0_0_4px_rgba(56,189,248,0.5)]" 
+                                ? "text-sky-450 font-extrabold drop-shadow-[0_0_4px_rgba(56,189,248,0.5)]" 
                                 : isBassLimit 
-                                ? "text-orange-400 font-extrabold drop-shadow-[0_0_4px_rgba(251,146,60,0.5)]" 
+                                ? "text-orange-450 font-extrabold drop-shadow-[0_0_4px_rgba(251,146,60,0.5)]" 
                                 : "text-amber-100/75 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
                             }`}
                             style={{ transform: `rotate(${-soundholeRotation}deg)` }}
                           >
-                            {str.pitch}
+                            <span className="block text-center tracking-tighter">{str.pitch}</span>
+                            <span className="block text-[6.5px] text-white/45 font-normal mt-[1.5px]">{str.frequency ? `${str.frequency.toFixed(1)}` : ""}</span>
                           </div>
 
                           <div 
@@ -3632,6 +3655,7 @@ export default function App() {
             {[
               { id: "chord", label: "Akkord-Finder & Bibliothek 📻", icon: <BookOpen size={13} /> },
               { id: "fretboard", label: "Griffbrett & Pentatonik 🏆", icon: <Zap size={13} /> },
+              { id: "circleOfFifths", label: "Quintenzirkel ⭕", icon: <Compass size={13} /> },
               { id: "practice", label: "Metronom & Training ⏱️", icon: <Timer size={13} /> }
             ].map((tabItem) => {
               const isActive = activeFooterTab === tabItem.id;
@@ -3725,6 +3749,188 @@ export default function App() {
               }
             </span>
           </div>
+        </div>
+
+        {/* ==================== HARMONISCHE OBERTÖNE & FLAGEOLETT-GUIDE (EXPANDABLE) ==================== */}
+        <div 
+          id="harmonics-expandable-card" 
+          className={`mb-6 border rounded-2xl overflow-hidden transition-all duration-300 shadow-xl ${
+            themeMode === "sunshine"
+              ? "bg-[#FCF5E3] border-amber-900/10"
+              : themeMode === "park"
+              ? "bg-[#E6F3E3] border-emerald-950/10"
+              : "bg-neutral-900/40 border-white/5"
+          }`}
+        >
+          <button
+            onClick={() => setIsHarmonicsExpanded(!isHarmonicsExpanded)}
+            className={`w-full flex items-center justify-between px-5 py-3 sm:py-3.5 hover:bg-white/5 transition-all text-left uppercase text-[9px] sm:text-[10px] font-mono tracking-wider font-bold cursor-pointer ${
+              themeMode === "sunshine"
+                ? "text-amber-950 hover:bg-amber-950/5"
+                : themeMode === "park"
+                ? "text-emerald-950 hover:bg-emerald-950/5"
+                : "text-amber-400 hover:bg-white/5"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Radio size={12} className={themeMode === "sunshine" ? "text-amber-600" : themeMode === "park" ? "text-emerald-600" : "text-amber-400 animate-pulse"} />
+              <span>Flageoletttöne & Obertöne-Guide (Oszillation) 🛸</span>
+            </div>
+            <span className={`text-[8.5px] font-sans font-bold flex items-center gap-1 ${
+              themeMode === "sunshine" ? "text-amber-800/55" : themeMode === "park" ? "text-emerald-800/55" : "text-white/40"
+            }`}>
+              {isHarmonicsExpanded ? "Einklappen ▲" : "Details einblenden ▼"}
+            </span>
+          </button>
+          
+          {isHarmonicsExpanded && (
+            <div className={`p-4 sm:p-5 border-t text-xs leading-relaxed space-y-4 ${
+              themeMode === "sunshine" 
+                ? "border-amber-900/15 text-amber-950/80 bg-white/30" 
+                : themeMode === "park" 
+                ? "border-emerald-950/15 text-emerald-950/80 bg-white/20" 
+                : "border-white/5 text-white/70 bg-neutral-950/20"
+            }`}>
+              <div className="font-sans space-y-2">
+                <p className="text-[11px] font-medium leading-relaxed">
+                  <strong>ℹ️ Was sind Flageoletttöne (Harmonics)?</strong> Sie entstehen, wenn du eine Saite zupfst, während du sie an einem exakten Schwingungsknoten (z.B. genau über dem 12., 7. oder 5. Bundstäbchen) nur ganz leicht mit der Fingerkuppe berührst (ohne sie herunterzudrücken) und sofort nach dem Anschlag loslässt. Diese Töne sind beinahe reine Sinusschwingungen und eignen sich hervorragend für das hoch-präzise Gehör-Stimmen!
+                </p>
+                <p className="text-[10px] opacity-75">
+                  Klicke auf die Noten-Buttons unten, um den glasklaren Referenzton des jeweiligen Flageoletts anzuhören.
+                </p>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-white/5">
+                <table className="w-full font-mono text-left text-[11px] min-w-[480px]">
+                  <thead>
+                    <tr className={`border-b ${
+                      themeMode === "sunshine" 
+                        ? "border-amber-900/10 text-amber-950/50 bg-amber-950/5" 
+                        : themeMode === "park" 
+                        ? "border-emerald-950/10 text-emerald-950/50 bg-emerald-950/5" 
+                        : "border-white/5 text-white/30 bg-white/5"
+                    }`}>
+                      <th className="py-2.5 px-3">Saite</th>
+                      <th className="py-2.5 px-3 text-center">Offene Freq.</th>
+                      <th className="py-2.5 px-3 text-center text-amber-400/90">12. Bund (2. Oberton)</th>
+                      <th className="py-2.5 px-3 text-center text-sky-450/90">7. Bund (3. Oberton)</th>
+                      <th className="py-2.5 px-3 text-center text-orange-450/90">5. Bund (4. Oberton)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {/* Reverse map of strings so 6th is top */}
+                    {[...tunedGuitarStrings].reverse().map((str) => {
+                      const baseFreq = str.frequency;
+                      const h12 = baseFreq * 2;
+                      const h7 = baseFreq * 3;
+                      const h5 = baseFreq * 4;
+
+                      // Helper function to get harmonic pitch labels
+                      const getHarmonicPitchLabel = (f: number) => {
+                        // find closest chromatic note
+                        const r = findClosestChromaticNote(f, referenceA4);
+                        return `${r.note}${r.octave}`;
+                      };
+
+                      return (
+                        <tr 
+                          key={str.number} 
+                          className={`border-b last:border-0 hover:bg-white/5 transition-colors ${
+                            themeMode === "sunshine" 
+                              ? "border-amber-900/5 text-amber-950" 
+                              : themeMode === "park" 
+                              ? "border-emerald-950/5 text-emerald-950" 
+                              : "border-white/5 text-white/80"
+                          }`}
+                        >
+                          <td className="py-2 px-3 align-middle font-sans font-bold flex items-center gap-1.5 focus:outline-none">
+                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-mono font-bold ${
+                              themeMode === "sunshine" 
+                                ? "bg-amber-950/10 text-amber-950" 
+                                : themeMode === "park" 
+                                ? "bg-emerald-950/10 text-emerald-950" 
+                                : "bg-white/10 text-white/80"
+                            }`}>
+                              {str.number}
+                            </span>
+                            <span>{str.note} ({str.pitch})</span>
+                          </td>
+                          <td className="py-2 px-3 text-center align-middle">
+                            <button
+                              onClick={() => playReferencePitch(baseFreq, str.number)}
+                              className={`px-2 py-1 rounded font-mono transition-all text-[10px] font-bold focus:outline-none cursor-pointer ${
+                                playingStringNum === str.number
+                                  ? "bg-amber-500 text-neutral-950 scale-105 animate-pulse"
+                                  : themeMode === "sunshine"
+                                  ? "bg-amber-950/5 text-amber-950 hover:bg-amber-950/15 border border-amber-950/10"
+                                  : themeMode === "park"
+                                  ? "bg-emerald-950/5 text-emerald-950 hover:bg-emerald-950/15 border border-emerald-950/10"
+                                  : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white border border-white/5"
+                              }`}
+                              title={`Spiele ${str.pitch} Grundton`}
+                            >
+                              {baseFreq.toFixed(1)} Hz 🔊
+                            </button>
+                          </td>
+                          <td className="py-2 px-3 text-center align-middle">
+                            <button
+                              onClick={() => playReferencePitch(h12, str.number * 100 + 12)}
+                              className={`px-2.5 py-1 rounded font-mono transition-all text-[10px] font-bold focus:outline-none cursor-pointer ${
+                                playingStringNum === (str.number * 100 + 12)
+                                  ? "bg-amber-500 text-neutral-950 scale-105 animate-pulse font-extrabold"
+                                  : themeMode === "sunshine"
+                                  ? "bg-amber-600/10 text-amber-850 hover:bg-amber-600/20 border border-amber-600/20"
+                                  : themeMode === "park"
+                                  ? "bg-emerald-600/10 text-emerald-850 hover:bg-emerald-600/20 border border-emerald-600/20"
+                                  : "bg-[#EAB308]/10 text-[#FACC15] hover:bg-[#EAB308]/20 border border-[#EAB308]/20"
+                              }`}
+                              title={`Spiele Flageoletton über dem 12. Bund (${getHarmonicPitchLabel(h12)})`}
+                            >
+                              {getHarmonicPitchLabel(h12)} ({h12.toFixed(1)} Hz) 💎
+                            </button>
+                          </td>
+                          <td className="py-2 px-3 text-center align-middle">
+                            <button
+                              onClick={() => playReferencePitch(h7, str.number * 100 + 7)}
+                              className={`px-2.5 py-1 rounded font-mono transition-all text-[10px] font-bold focus:outline-none cursor-pointer ${
+                                playingStringNum === (str.number * 100 + 7)
+                                  ? "bg-amber-500 text-neutral-950 scale-105 animate-pulse font-extrabold"
+                                  : themeMode === "sunshine"
+                                  ? "bg-amber-600/10 text-amber-850 hover:bg-amber-600/20 border border-amber-600/20"
+                                  : themeMode === "park"
+                                  ? "bg-emerald-600/10 text-emerald-850 hover:bg-emerald-600/20 border border-emerald-600/20"
+                                  : "bg-[#38BDF8]/10 text-[#38BDF8] hover:bg-[#38BDF8]/20 border border-[#38BDF8]/20"
+                              }`}
+                              title={`Spiele Flageoletton über dem 7. Bund (${getHarmonicPitchLabel(h7)})`}
+                            >
+                              {getHarmonicPitchLabel(h7)} ({h7.toFixed(1)} Hz) 💎
+                            </button>
+                          </td>
+                          <td className="py-2 px-3 text-center align-middle">
+                            <button
+                              onClick={() => playReferencePitch(h5, str.number * 100 + 5)}
+                              className={`px-2.5 py-1 rounded font-mono transition-all text-[10px] font-bold focus:outline-none cursor-pointer ${
+                                playingStringNum === (str.number * 100 + 5)
+                                  ? "bg-amber-500 text-neutral-950 scale-105 animate-pulse font-extrabold"
+                                  : themeMode === "sunshine"
+                                  ? "bg-amber-600/10 text-amber-850 hover:bg-amber-600/20 border border-amber-600/20"
+                                  : themeMode === "park"
+                                  ? "bg-emerald-600/10 text-emerald-850 hover:bg-emerald-600/20 border border-emerald-650/20"
+                                  : "bg-[#FB923C]/10 text-[#FB923C] hover:bg-[#FB923C]/20 border border-[#FB923C]/20"
+                              }`}
+                              title={`Spiele Flageoletton über dem 5. Bund (${getHarmonicPitchLabel(h5)})`}
+                            >
+                              {getHarmonicPitchLabel(h5)} ({h5.toFixed(1)} Hz) 💎
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
         {activeFooterTab === "chord" && (
@@ -4267,33 +4473,75 @@ export default function App() {
           <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center border-b border-white/5 pb-2.5">
             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
               <div>
-                <h5 className="text-[11px] uppercase tracking-[0.15em] text-amber-400 font-extrabold flex items-center gap-1.5 font-mono">
+                <h5 className={`text-[11px] uppercase tracking-[0.15em] font-extrabold flex items-center gap-1.5 font-mono ${
+                  themeMode === "sunshine"
+                    ? "text-amber-950"
+                    : themeMode === "park"
+                    ? "text-emerald-950"
+                    : "text-amber-400"
+                }`}>
                   <span>Griffbrett-Master-Visualizer 🏆</span>
                 </h5>
-                <p className="text-[10px] text-white/30 font-mono mt-0.5">
-                  Interaktives Gesamt-Diagramm der <strong className="text-white/70">{pentatonicKey}-{pentatonicType === "minor" ? "Moll" : "Dur"}-Pentatonik</strong>. Klicke Töne an, um sie anzuspielen!
+                <p className={`text-[10px] font-mono mt-0.5 ${
+                  themeMode === "sunshine"
+                    ? "text-amber-900/70"
+                    : themeMode === "park"
+                    ? "text-emerald-900/70"
+                    : "text-white/30"
+                }`}>
+                  Interaktives Gesamt-Diagramm der <strong className={`${
+                    themeMode === "sunshine"
+                      ? "text-amber-950 font-black"
+                      : themeMode === "park"
+                      ? "text-emerald-950 font-black"
+                      : "text-white/70"
+                  }`}>{pentatonicKey}-{pentatonicType === "minor" ? "Moll" : "Dur"}-Pentatonik</strong>. Klicke Töne an, um sie anzuspielen!
                 </p>
               </div>
 
               {chordFilter !== "pentatonic" && (
-                <div className="flex items-center gap-1.5 bg-black/40 border border-white/5 rounded-xl px-2 py-1">
-                  <span className="text-[9px] font-mono text-white/40 uppercase font-bold">Skala:</span>
+                <div className={`flex items-center gap-1.5 rounded-xl px-2 py-1 border ${
+                  themeMode === "sunshine"
+                    ? "bg-amber-950/10 border-amber-950/15"
+                    : themeMode === "park"
+                    ? "bg-emerald-950/10 border-emerald-950/15"
+                    : "bg-black/40 border-white/5"
+                }`}>
+                  <span className={`text-[9px] font-mono uppercase font-bold ${
+                    themeMode === "sunshine"
+                      ? "text-amber-950/70"
+                      : themeMode === "park"
+                      ? "text-emerald-950/70"
+                      : "text-white/40"
+                  }`}>Skala:</span>
                   <select
                     value={pentatonicKey}
                     onChange={(e) => setPentatonicKey(e.target.value)}
-                    className="bg-neutral-800 text-amber-400 font-mono font-bold text-[10px] rounded px-1.5 py-0.5 border border-white/10 outline-none cursor-pointer"
+                    className={`font-mono font-bold text-[10px] rounded px-1.5 py-0.5 border outline-none cursor-pointer transition-colors ${
+                      themeMode === "sunshine"
+                        ? "bg-white text-amber-950 border-amber-900/20"
+                        : themeMode === "park"
+                        ? "bg-white text-emerald-950 border-emerald-950/20"
+                        : "bg-neutral-800 text-amber-400 border-white/10"
+                    }`}
                   >
                     {["C", "D", "E", "F", "G", "A", "H"].map(k => (
-                      <option key={k} value={k}>{k}</option>
+                      <option key={k} value={k} className={themeMode === "sunshine" ? "bg-white text-amber-950" : themeMode === "park" ? "bg-white text-emerald-950" : "bg-neutral-800 text-white"}>{k}</option>
                     ))}
                   </select>
                   <select
                     value={pentatonicType}
                     onChange={(e) => setPentatonicType(e.target.value as any)}
-                    className="bg-neutral-800 text-white font-sans font-bold text-[10px] rounded px-1.5 py-0.5 border border-white/10 outline-none cursor-pointer"
+                    className={`font-sans font-bold text-[10px] rounded px-1.5 py-0.5 border outline-none cursor-pointer transition-colors ${
+                      themeMode === "sunshine"
+                        ? "bg-white text-amber-950 border-amber-900/20"
+                        : themeMode === "park"
+                        ? "bg-white text-emerald-950 border-emerald-850/20"
+                        : "bg-neutral-800 text-white border-white/10"
+                    }`}
                   >
-                    <option value="minor">Moll-Pentatonik</option>
-                    <option value="major">Dur-Pentatonik</option>
+                    <option value="minor" className={themeMode === "sunshine" ? "bg-white text-amber-950" : themeMode === "park" ? "bg-white text-emerald-950" : "bg-neutral-800 text-white"}>Moll-Pentatonik</option>
+                    <option value="major" className={themeMode === "sunshine" ? "bg-white text-amber-950" : themeMode === "park" ? "bg-white text-emerald-950" : "bg-neutral-800 text-white"}>Dur-Pentatonik</option>
                   </select>
                 </div>
               )}
@@ -4301,8 +4549,14 @@ export default function App() {
             
             {/* Dynamic control buttons with sequence play, and expanded view modal */}
             <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
-              <div className="flex items-center gap-1.5 bg-black/40 border border-white/5 rounded-full px-2.5 py-1 font-mono text-[9px] text-white/40">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+              <div className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[9px] border ${
+                themeMode === "sunshine"
+                  ? "bg-amber-950/10 border-amber-950/15 text-amber-950/70"
+                  : themeMode === "park"
+                  ? "bg-emerald-950/10 border-emerald-950/15 text-emerald-950/70"
+                  : "bg-black/40 border-white/5 text-white/40"
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${themeMode === "sunshine" ? "bg-amber-600" : themeMode === "park" ? "bg-emerald-600" : "bg-amber-400"}`} />
                 <span>R = Grundton</span>
               </div>
 
@@ -4316,7 +4570,13 @@ export default function App() {
                 }}
                 className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9.5px] uppercase tracking-wider font-extrabold transition-all cursor-pointer select-none active:scale-[0.98] ${
                   isScalePlaying
-                    ? "bg-red-500/25 border border-red-500/50 text-red-300 animate-pulse"
+                    ? themeMode === "sunshine" || themeMode === "park"
+                      ? "bg-red-100 border border-red-900/30 text-red-800 animate-pulse"
+                      : "bg-red-500/25 border border-red-500/50 text-red-300 animate-pulse"
+                    : themeMode === "sunshine"
+                    ? "bg-white/80 hover:bg-amber-50 border border-amber-950/25 text-amber-950 hover:text-amber-900 shadow-sm"
+                    : themeMode === "park"
+                    ? "bg-white/80 hover:bg-emerald-50 border border-emerald-950/25 text-emerald-950 hover:text-emerald-900 shadow-sm"
                     : "bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:text-amber-200"
                 }`}
                 title="Tonleiter automatisch abspielen"
@@ -4327,7 +4587,13 @@ export default function App() {
 
               <button
                 onClick={() => setIsExtendedNeckModalOpen(true)}
-                className="flex items-center gap-1 px-3 py-1 bg-neutral-800 hover:bg-neutral-700 hover:text-white border border-white/10 hover:border-white/25 rounded-lg text-[9.5px] uppercase tracking-wider font-extrabold text-[#f5f5f5] transition-all cursor-pointer select-none"
+                className={`flex items-center gap-1 px-3 py-1 rounded-lg text-[9.5px] uppercase tracking-wider font-extrabold border transition-all cursor-pointer select-none ${
+                  themeMode === "sunshine"
+                    ? "bg-white/80 hover:bg-amber-50/50 border-amber-950/25 text-amber-950 hover:text-amber-900 shadow-sm"
+                    : themeMode === "park"
+                    ? "bg-white/80 hover:bg-emerald-50/50 border-emerald-950/25 text-emerald-950 hover:text-emerald-900 shadow-sm"
+                    : "bg-neutral-800 hover:bg-neutral-700 hover:text-white border-white/10 hover:border-white/25 text-[#f5f5f5]"
+                }`}
                 title="Öffne das Griffbrett in einer großen interaktiven Großansicht"
               >
                 🔍 Großansicht
@@ -4582,7 +4848,15 @@ export default function App() {
               onClick={() => setIsNeckFlipped(prev => !prev)}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9.5px] uppercase tracking-wider font-extrabold border transition-all cursor-pointer select-none active:scale-[0.98] ${
                 isNeckFlipped
-                  ? "bg-amber-500/20 border-amber-500/50 text-amber-300"
+                  ? themeMode === "sunshine"
+                    ? "bg-amber-100 border-amber-900/40 text-amber-950"
+                    : themeMode === "park"
+                    ? "bg-emerald-100 border-emerald-950/40 text-emerald-950"
+                    : "bg-amber-500/20 border-amber-500/50 text-amber-300"
+                  : themeMode === "sunshine"
+                  ? "bg-white/80 hover:bg-amber-50/50 border-amber-950/25 text-amber-950 hover:text-amber-900 shadow-sm"
+                  : themeMode === "park"
+                  ? "bg-white/80 hover:bg-emerald-50/50 border-emerald-950/25 text-emerald-950 hover:text-emerald-900 shadow-sm"
                   : "bg-neutral-800 hover:bg-neutral-700 hover:text-white border-white/10 hover:border-white/25 text-[#f5f5f5]"
               }`}
               title="Gitarrenhals um 180 Grad vertikal spiegeln (Tiefe E-Saite oben vs. unten)"
@@ -4681,6 +4955,441 @@ export default function App() {
             )}
           </div>
         )}
+
+        {/* ==================== INTERACTIVE CIRCLE OF FIFTHS (QUINTENZIRKEL) ==================== */}
+        {activeFooterTab === "circleOfFifths" && (() => {
+          const FIFTHS_MAJOR = ["C", "G", "D", "A", "E", "H", "Fis", "Cis", "Gis", "Dis", "B", "F"];
+          const FIFTHS_MINOR = ["Am", "Em", "Hm", "Fism", "Cism", "Gism", "Dism", "Aism", "Fm", "Cm", "Gm", "Dm"];
+
+          const getCoords = (idx: number, radius: number) => {
+            const angle = (idx * 30 - 90) * Math.PI / 180;
+            const x = 140 + radius * Math.cos(angle);
+            const y = 140 + radius * Math.sin(angle);
+            return { x, y };
+          };
+
+          const getPartitionLine = (idx: number) => {
+            const angle = (idx * 30 - 105) * Math.PI / 180;
+            const x1 = 140 + 44 * Math.cos(angle);
+            const y1 = 140 + 44 * Math.sin(angle);
+            const x2 = 140 + 124 * Math.cos(angle);
+            const y2 = 140 + 124 * Math.sin(angle);
+            return { x1, y1, x2, y2 };
+          };
+
+          const familyMajorIdxs = [
+            (selectedCircleKey - 1 + 12) % 12,
+            selectedCircleKey,
+            (selectedCircleKey + 1) % 12
+          ];
+
+          const familyMinorIdxs = [
+            (selectedCircleKey - 1 + 12) % 12,
+            selectedCircleKey,
+            (selectedCircleKey + 1) % 12
+          ];
+
+          const isMajorInFamily = (idx: number) => familyMajorIdxs.includes(idx);
+          const isMinorInFamily = (idx: number) => familyMinorIdxs.includes(idx);
+
+          const getKnownChord = (root: string, type: "Dur" | "Moll"): Chord | null => {
+            const searchName = root === "H" ? (type === "Dur" ? "H / B (Dur)" : "Hm") : 
+                               root === "B" ? (type === "Dur" ? "B / Bb (Dur)" : "Bm") : 
+                               root === "Fis" ? (type === "Dur" ? "F# (Dur)" : "F#m (Moll)") :
+                               root === "Cis" ? (type === "Dur" ? "C#" : "C#m") :
+                               root === "Gis" ? (type === "Dur" ? "G#" : "G#m") :
+                               root === "Dis" ? (type === "Dur" ? "D# / Eb (Dur B. A-Typ)" : "D#m") :
+                               root === "F" ? (type === "Dur" ? "F (Dur)" : "Fm (Moll)") :
+                               (type === "Dur" ? root : `${root}m`);
+
+            const found = COMMON_CHORDS.find(c => 
+              c.name.toLowerCase() === searchName.toLowerCase() ||
+              c.name.toLowerCase().replace(/\s+/g, '') === searchName.toLowerCase().replace(/\s+/g, '') ||
+              c.name.toLowerCase() === (type === "Dur" ? root.toLowerCase() : `${root}m`.toLowerCase())
+            );
+            
+            if (found) return found;
+
+            if (type === "Dur") {
+              if (root === "C") return COMMON_CHORDS.find(c => c.name === "C") || null;
+              if (root === "G") return COMMON_CHORDS.find(c => c.name === "G") || null;
+              if (root === "D") return COMMON_CHORDS.find(c => c.name === "D") || null;
+              if (root === "A") return COMMON_CHORDS.find(c => c.name === "A") || null;
+              if (root === "E") return COMMON_CHORDS.find(c => c.name === "E") || null;
+              if (root === "F") return COMMON_CHORDS.find(c => c.name.startsWith("F (")) || null;
+              if (root === "Fis") return COMMON_CHORDS.find(c => c.name.startsWith("F# (")) || null;
+              if (root === "Cis") return COMMON_CHORDS.find(c => c.name.startsWith("C#")) || null;
+              if (root === "Gis") return COMMON_CHORDS.find(c => c.name.startsWith("G#")) || null;
+              if (root === "Dis") return COMMON_CHORDS.find(c => c.name.includes("D#") || c.name.includes("Eb")) || null;
+              if (root === "B") return COMMON_CHORDS.find(c => c.name.includes("B / Bb")) || null;
+              if (root === "H") return COMMON_CHORDS.find(c => c.name.includes("H / B")) || null;
+            } else {
+              if (root === "C") return COMMON_CHORDS.find(c => c.name.startsWith("Cm")) || null;
+              if (root === "G") return COMMON_CHORDS.find(c => c.name.startsWith("Gm")) || null;
+              if (root === "D") return COMMON_CHORDS.find(c => c.name === "Dm" || c.name.startsWith("Dm")) || null;
+              if (root === "A") return COMMON_CHORDS.find(c => c.name === "Am" || c.name.startsWith("Am")) || null;
+              if (root === "E") return COMMON_CHORDS.find(c => c.name === "Em" || c.name.startsWith("Em")) || null;
+              if (root === "F") return COMMON_CHORDS.find(c => c.name.startsWith("Fm")) || null;
+              if (root === "Fis") return COMMON_CHORDS.find(c => c.name.startsWith("F#m")) || null;
+              if (root === "Cis") return COMMON_CHORDS.find(c => c.name.startsWith("C#m")) || null;
+              if (root === "Gis") return COMMON_CHORDS.find(c => c.name.startsWith("G#m")) || null;
+              if (root === "Dis") return COMMON_CHORDS.find(c => c.name.startsWith("D#m") || c.name.includes("D#m") || c.name.includes("Ebm")) || null;
+              if (root === "B") return COMMON_CHORDS.find(c => c.name.startsWith("Bm") && c.name.includes("Bbm")) || null;
+              if (root === "H") return COMMON_CHORDS.find(c => c.name.startsWith("Hm")) || null;
+            }
+            return null;
+          };
+
+          const activeTonicMajor = FIFTHS_MAJOR[selectedCircleKey];
+          const activeTonicMinor = FIFTHS_MINOR[selectedCircleKey];
+
+          const playChordByName = (root: string, type: "Dur" | "Moll") => {
+            const chord = getKnownChord(root, type);
+            if (chord) {
+              playChord(chord);
+            }
+          };
+
+          const selectChordByName = (root: string, type: "Dur" | "Moll") => {
+            const chord = getKnownChord(root, type);
+            if (chord) {
+              setSelectedChord(chord);
+              setActiveFooterTab("chord");
+              setTimeout(() => {
+                const el = document.getElementById("chord-display-container");
+                if (el) el.scrollIntoView({ behavior: "smooth" });
+              }, 120);
+            }
+          };
+
+          return (
+            <div id="circle-of-fifths-container" className={`rounded-3xl p-5 sm:p-6 mb-8 select-none shadow-xl animate-fade-in border transition-all ${
+              themeMode === "sunshine"
+                ? "bg-[#FAF2D8]/80 text-[#3d2703] border-[#E6D4B2]"
+                : themeMode === "park"
+                ? "bg-[#BBE1B6]/30 text-[#123010] border-[#92B98E]/50"
+                : "bg-neutral-900/40 text-white border-white/5"
+            }`}>
+              
+              <div className="border-b border-black/5 dark:border-white/5 pb-3.5 mb-5">
+                <h4 className="text-sm font-black uppercase tracking-wider flex items-center gap-2">
+                  <Compass size={16} className={themeMode === "sunshine" ? "text-amber-700 animate-spin-slow" : themeMode === "park" ? "text-emerald-700 animate-spin-slow" : "text-amber-400 animate-spin-slow"} />
+                  <span>Interaktiver Quintenzirkel ⭕</span>
+                </h4>
+                <p className="text-[10.5px] opacity-75 mt-1 font-sans leading-relaxed">
+                  Dieses Werkzeug visualisiert harmonische Beziehungen und Akkordfamilien. 
+                  Klicke auf einen Akkord im Kreis, um die zugehörige <strong>Akkord-Familie (die 6 Hauptakkorde)</strong> zu sehen, sie live anzuhören oder ihre Griffe anzuzeigen!
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                
+                <div className="lg:col-span-5 flex flex-col items-center justify-center">
+                  <div className="relative w-[280px] h-[280px]">
+                    <svg width="280" height="280" viewBox="0 0 280 280" className="w-full h-full">
+                      <defs>
+                        <radialGradient id="sunshine-radial" cx="50%" cy="50%" r="50%">
+                          <stop offset="0%" stopColor="#fffcf2" />
+                          <stop offset="100%" stopColor="#f3e9c8" />
+                        </radialGradient>
+                        <radialGradient id="park-radial" cx="50%" cy="50%" r="50%">
+                          <stop offset="0%" stopColor="#f4faf0" />
+                          <stop offset="100%" stopColor="#d5ecd2" />
+                        </radialGradient>
+                        <radialGradient id="dark-radial" cx="50%" cy="50%" r="50%">
+                          <stop offset="0%" stopColor="#1a1a1a" />
+                          <stop offset="100%" stopColor="#0d0d0d" />
+                        </radialGradient>
+                      </defs>
+
+                      <circle 
+                        cx="140" 
+                        cy="140" 
+                        r="124" 
+                        fill={themeMode === "sunshine" ? "url(#sunshine-radial)" : themeMode === "park" ? "url(#park-radial)" : "url(#dark-radial)"}
+                        stroke={themeMode === "sunshine" ? "#e6d3ac" : themeMode === "park" ? "#a8cf9a" : "rgba(255,255,255,0.08)"} 
+                        strokeWidth="1.5"
+                      />
+                      
+                      <circle 
+                        cx="140" 
+                        cy="140" 
+                        r="44" 
+                        className="transition-colors duration-200"
+                        fill={themeMode === "sunshine" ? "#eadaaa" : themeMode === "park" ? "#c1e7bb" : "#171717"}
+                        stroke={themeMode === "sunshine" ? "#d2bc8f" : themeMode === "park" ? "#9ece92" : "rgba(255,255,255,0.12)"}
+                        strokeWidth="1"
+                      />
+
+                      {FIFTHS_MAJOR.map((_, idx) => {
+                        const { x1, y1, x2, y2 } = getPartitionLine(idx);
+                        return (
+                          <line
+                            key={`partition-${idx}`}
+                            x1={x1}
+                            y1={y1}
+                            x2={x2}
+                            y2={y2}
+                            stroke={themeMode === "sunshine" ? "rgba(210,188,143,0.3)" : themeMode === "park" ? "rgba(158,206,146,0.3)" : "rgba(255,255,255,0.05)"}
+                            strokeWidth="1"
+                          />
+                        );
+                      })}
+
+                      <circle cx="140" cy="140" r="84" fill="none" stroke={themeMode === "sunshine" ? "#d2bc8f" : themeMode === "park" ? "#9ece92" : "rgba(255,255,255,0.06)"} strokeWidth="1" />
+                      <circle cx="140" cy="140" r="124" fill="none" stroke={themeMode === "sunshine" ? "#d2bc8f" : themeMode === "park" ? "#9ece92" : "rgba(255,255,255,0.06)"} strokeWidth="1" />
+
+                      {FIFTHS_MAJOR.map((note, idx) => {
+                        const inFamily = isMajorInFamily(idx);
+                        const isPrimary = selectedCircleKey === idx;
+                        const pos = getCoords(idx, 105);
+                        
+                        let badgeFill = "transparent";
+                        let strokeColor = "transparent";
+                        if (isPrimary) {
+                          badgeFill = themeMode === "sunshine" ? "#ca8a04" : themeMode === "park" ? "#15803d" : "#f59e0b";
+                          strokeColor = themeMode === "sunshine" ? "#854d0e" : themeMode === "park" ? "#14532d" : "#fbbf24";
+                        } else if (inFamily) {
+                          badgeFill = themeMode === "sunshine" ? "rgba(234,179,8,0.15)" : themeMode === "park" ? "rgba(34,197,94,0.15)" : "rgba(245,158,11,0.15)";
+                          strokeColor = themeMode === "sunshine" ? "rgba(133,77,14,0.3)" : themeMode === "park" ? "rgba(20,83,45,0.3)" : "rgba(251,191,36,0.3)";
+                        }
+
+                        return (
+                          <g 
+                            key={`major-g-${idx}`} 
+                            className="cursor-pointer group select-none transition-all duration-300"
+                            onClick={() => setSelectedCircleKey(idx)}
+                          >
+                            <circle 
+                              cx={pos.x} 
+                              cy={pos.y} 
+                              r="18" 
+                              fill={badgeFill} 
+                              stroke={strokeColor}
+                              strokeWidth={isPrimary ? "2" : (inFamily ? "1" : "0")}
+                              className="transition-all duration-300 group-hover:scale-110"
+                            />
+                            <text
+                              x={pos.x}
+                              y={pos.y + 4}
+                              textAnchor="middle"
+                              className={`text-[12px] font-black font-sans select-none tracking-tight transition-colors duration-200 ${
+                                isPrimary
+                                  ? "fill-white"
+                                  : themeMode === "sunshine"
+                                  ? "fill-amber-950 group-hover:fill-amber-700"
+                                  : themeMode === "park"
+                                  ? "fill-emerald-950 group-hover:fill-emerald-700"
+                                  : "fill-white/80 group-hover:fill-amber-300"
+                              }`}
+                            >
+                              {note}
+                            </text>
+                          </g>
+                        );
+                      })}
+
+                      {FIFTHS_MINOR.map((note, idx) => {
+                        const inFamily = isMinorInFamily(idx);
+                        const isPrimary = selectedCircleKey === idx;
+                        const pos = getCoords(idx, 68);
+
+                        let badgeFill = "transparent";
+                        let strokeColor = "transparent";
+                        if (isPrimary) {
+                          badgeFill = themeMode === "sunshine" ? "#9d174d" : themeMode === "park" ? "#1d4ed8" : "#a855f7";
+                          strokeColor = themeMode === "sunshine" ? "#50072b" : themeMode === "park" ? "#1e3a8a" : "#c084fc";
+                        } else if (inFamily) {
+                          badgeFill = themeMode === "sunshine" ? "rgba(157,23,77,0.12)" : themeMode === "park" ? "rgba(29,78,216,0.12)" : "rgba(168,85,247,0.12)";
+                          strokeColor = themeMode === "sunshine" ? "rgba(157,23,77,0.25)" : themeMode === "park" ? "rgba(29,78,216,0.25)" : "rgba(168,85,247,0.25)";
+                        }
+
+                        return (
+                          <g 
+                            key={`minor-g-${idx}`} 
+                            className="cursor-pointer group select-none transition-all duration-300"
+                            onClick={() => setSelectedCircleKey(idx)}
+                          >
+                            <circle 
+                              cx={pos.x} 
+                              cy={pos.y} 
+                              r="15" 
+                              fill={badgeFill} 
+                              stroke={strokeColor}
+                              strokeWidth={isPrimary ? "1.5" : (inFamily ? "1" : "0")}
+                              className="transition-all duration-300 group-hover:scale-110"
+                            />
+                            <text
+                              x={pos.x}
+                              y={pos.y + 3.5}
+                              textAnchor="middle"
+                              className={`text-[10px] font-bold font-sans select-none transition-colors duration-200 ${
+                                isPrimary
+                                  ? "fill-white font-extrabold"
+                                  : themeMode === "sunshine"
+                                  ? "fill-pink-950 group-hover:fill-pink-700"
+                                  : themeMode === "park"
+                                  ? "fill-indigo-950 group-hover:fill-indigo-700"
+                                  : "fill-white/50 group-hover:fill-purple-300"
+                              }`}
+                            >
+                              {note}
+                            </text>
+                          </g>
+                        );
+                      })}
+
+                      <text 
+                        x="140" 
+                        y="136" 
+                        textAnchor="middle" 
+                        className={`text-[11px] uppercase tracking-wider font-mono font-extrabold ${
+                          themeMode === "sunshine" ? "fill-amber-900/60" : themeMode === "park" ? "fill-emerald-900/60" : "fill-white/30"
+                        }`}
+                      >
+                        Tonika
+                      </text>
+                      <text 
+                        x="140" 
+                        y="154" 
+                        textAnchor="middle" 
+                        className={`text-[16px] font-black transition-all ${
+                          themeMode === "sunshine" ? "fill-amber-950" : themeMode === "park" ? "fill-emerald-950" : "fill-white"
+                        }`}
+                      >
+                        {activeTonicMajor} / {activeTonicMinor}
+                      </text>
+                    </svg>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-7 flex flex-col justify-between gap-4">
+                  
+                  <div className={`p-3.5 rounded-2xl border ${
+                    themeMode === "sunshine"
+                      ? "bg-amber-100/50 border-amber-900/10"
+                      : themeMode === "park"
+                      ? "bg-emerald-100/30 border-emerald-900/10"
+                      : "bg-black/25 border-white/5"
+                  }`}>
+                    <span className="text-[9px] font-extrabold uppercase font-mono tracking-widest block opacity-60">Tonart-Zusammenfassung</span>
+                    <strong className="text-sm tracking-tight block mt-0.5">
+                      {activeTonicMajor}-Dur / {activeTonicMinor.replace("m", "")}-Moll Akkorde
+                    </strong>
+                    <p className="text-[10.5px] opacity-80 mt-1 leading-relaxed font-sans">
+                      Diese 6 Akkorde teilen sich dieselben Vorzeichen und bilden die klangliche DNA fast aller Lieder in dieser Tonart.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    
+                    <div className={`p-4 rounded-2xl flex flex-col gap-3 border ${
+                      themeMode === "sunshine"
+                        ? "bg-amber-950/5 border-amber-900/10"
+                        : themeMode === "park"
+                        ? "bg-emerald-950/5 border-emerald-900/10"
+                        : "bg-white/[0.02] border-white/5"
+                    }`}>
+                      <span className="text-[10px] font-extrabold font-mono uppercase tracking-wider text-amber-500 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        <span>DUR-Akkorde (Hauptdreiklänge)</span>
+                      </span>
+
+                      <div className="flex flex-col gap-2.5">
+                        {[
+                          { func: "Tonika (I)", name: activeTonicMajor },
+                          { func: "Subdominante (IV)", name: FIFTHS_MAJOR[(selectedCircleKey - 1 + 12) % 12] },
+                          { func: "Dominante (V)", name: FIFTHS_MAJOR[(selectedCircleKey + 1) % 12] }
+                        ].map((ch) => {
+                          const hasDef = !!getKnownChord(ch.name, "Dur");
+                          return (
+                            <div key={`maj-fam-${ch.func}`} className="flex items-center justify-between gap-2 p-2 bg-black/15 dark:bg-black/30 rounded-xl border border-white/5 hover:border-white/10 transition-all">
+                              <div>
+                                <span className="text-[8.5px] uppercase tracking-wider opacity-60 block font-mono font-bold">{ch.func}</span>
+                                <strong className="text-xs font-mono font-black">{ch.name} Dur</strong>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => playChordByName(ch.name, "Dur")}
+                                  className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 active:scale-95 text-[10px] font-bold text-white rounded-lg flex items-center justify-center cursor-pointer transition-all border border-white/10 inline-block"
+                                  title={`${ch.name} akkordseitig anzupfen`}
+                                >
+                                  🔊 Sound
+                                </button>
+                                {hasDef && (
+                                  <button
+                                    onClick={() => selectChordByName(ch.name, "Dur")}
+                                    className="px-2.5 py-1.5 bg-amber-500/15 text-amber-500 hover:bg-amber-500 hover:text-neutral-950 active:scale-95 text-[10px] font-mono font-bold rounded-lg cursor-pointer transition-all border border-amber-500/20 inline-block"
+                                    title={`Griffdiagramm auf dem Griffbrett anzeigen`}
+                                  >
+                                    Diagramm
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className={`p-4 rounded-2xl flex flex-col gap-3 border ${
+                      themeMode === "sunshine"
+                        ? "bg-pink-950/5 border-pink-900/10"
+                        : themeMode === "park"
+                        ? "bg-[#1d4ed8]/5 border-[#1d4ed8]/10"
+                        : "bg-white/[0.02] border-white/5"
+                    }`}>
+                      <span className="text-[10px] font-extrabold font-mono uppercase tracking-wider text-purple-400 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                        <span>MOLL-Akkorde (Parallelen)</span>
+                      </span>
+
+                      <div className="flex flex-col gap-2.5">
+                        {[
+                          { func: "Tonikaparallele (vi)", name: FIFTHS_MAJOR[selectedCircleKey] },
+                          { func: "Subdominantparallele (ii)", name: FIFTHS_MAJOR[(selectedCircleKey - 1 + 12) % 12] },
+                          { func: "Dominantparallele (iii)", name: FIFTHS_MAJOR[(selectedCircleKey + 1) % 12] }
+                        ].map((ch) => {
+                          const hasDef = !!getKnownChord(ch.name, "Moll");
+                          return (
+                            <div key={`min-fam-${ch.func}`} className="flex items-center justify-between gap-2 p-2 bg-black/15 dark:bg-black/30 rounded-xl border border-white/5 hover:border-white/10 transition-all">
+                              <div>
+                                <span className="text-[8.5px] uppercase tracking-wider opacity-60 block font-mono font-bold">{ch.func}</span>
+                                <strong className="text-xs font-mono font-black">{ch.name} Moll</strong>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => playChordByName(ch.name, "Moll")}
+                                  className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 active:scale-95 text-[10px] font-bold text-white rounded-lg flex items-center justify-center cursor-pointer transition-all border border-white/10 inline-block"
+                                  title={`${ch.name} Moll akkordseitig anzupfen`}
+                                >
+                                  🔊 Sound
+                                </button>
+                                {hasDef && (
+                                  <button
+                                    onClick={() => selectChordByName(ch.name, "Moll")}
+                                    className="px-2.5 py-1.5 bg-purple-500/15 text-purple-400 hover:bg-purple-500 hover:text-neutral-950 active:scale-95 text-[10px] font-mono font-bold rounded-lg cursor-pointer transition-all border border-purple-500/20 inline-block"
+                                    title={`Griffdiagramm auf dem Griffbrett anzeigen`}
+                                  >
+                                    Diagramm
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+          );
+        })()}
 
         {/* ==================== PRACTICE METRONOME & WHATSAPP FEEDBACK GRID ==================== */}
         {activeFooterTab === "practice" && (
